@@ -1,0 +1,2695 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>畫室棋局・黑主與大小姐對弈圖</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Noto Serif TC for classical ink-wash aesthetic -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-ink: #111218;
+      --bg-panel: #181720;
+      --gold-border: #c9a96e;
+      --gold-dim: rgba(201, 169, 110, 0.28);
+      --crimson: #9e2a2b;
+      --crimson-glow: rgba(158, 42, 43, 0.45);
+      --violet-glow: rgba(167, 139, 250, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: 'Noto Serif TC', 'Songti TC', 'PMingLiU', serif;
+      background: radial-gradient(circle at 50% 15%, #211d2b 0%, #14141c 55%, #0d0e13 100%);
+      color: #ede6d6;
+      min-height: 100vh;
+      overflow-x: hidden;
+      margin: 0;
+    }
+
+    /* Subtle Xuan-paper & ink-wash texture overlay */
+    .ink-texture {
+      background-image:
+        radial-gradient(rgba(201, 169, 110, 0.04) 1px, transparent 0),
+        radial-gradient(rgba(158, 42, 43, 0.03) 1px, transparent 0);
+      background-size: 28px 28px;
+      background-position: 0 0, 14px 14px;
+    }
+
+    /* Classical gold double frame */
+    .gold-frame {
+      border: 1px solid rgba(201, 169, 110, 0.45);
+      box-shadow:
+        0 18px 45px rgba(0, 0, 0, 0.65),
+        inset 0 0 0 1px rgba(201, 169, 110, 0.12);
+    }
+
+    /* Sandalwood board container shadow & sheen */
+    .board-shell {
+      background: linear-gradient(145deg, #2d2219 0%, #1e1610 100%);
+      border: 1.5px solid #c9a96e;
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.78),
+        0 0 25px rgba(201, 169, 110, 0.14),
+        inset 0 0 18px rgba(0, 0, 0, 0.7);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+
+    /* Custom classical button styling */
+    .btn-classical {
+      background: linear-gradient(180deg, rgba(38, 34, 48, 0.95) 0%, rgba(22, 20, 29, 0.98) 100%);
+      border: 1px solid rgba(201, 169, 110, 0.45);
+      color: #e8dec8;
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+    .btn-classical:hover:not(:disabled) {
+      border-color: #e6c88a;
+      color: #fff8eb;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(201, 169, 110, 0.18);
+    }
+    .btn-classical:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+    .btn-classical:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-crimson {
+      background: linear-gradient(180deg, #8b2324 0%, #5e1516 100%);
+      border: 1px solid #d4af6a;
+      color: #fdf6e9;
+      box-shadow: 0 4px 14px rgba(158, 42, 43, 0.45);
+    }
+    .btn-crimson:hover:not(:disabled) {
+      background: linear-gradient(180deg, #a3292a 0%, #70191a 100%);
+      box-shadow: 0 6px 18px rgba(158, 42, 43, 0.65);
+    }
+
+    .tab-active {
+      background: linear-gradient(180deg, rgba(158, 42, 43, 0.88) 0%, rgba(102, 24, 25, 0.95) 100%);
+      border-color: #e5c687;
+      color: #fff9ee;
+      box-shadow: 0 0 14px rgba(158, 42, 43, 0.45);
+    }
+
+    /* Subtle pulse for active turn stone badge */
+    @keyframes pulseAura {
+      0%, 100% { transform: scale(1); opacity: 0.85; }
+      50% { transform: scale(1.14); opacity: 1; }
+    }
+    .turn-aura {
+      animation: pulseAura 2.2s infinite ease-in-out;
+    }
+
+    /* Custom modal overlay */
+    .modal-backdrop {
+      background: rgba(9, 10, 15, 0.78);
+      backdrop-filter: blur(5px);
+    }
+
+    /* Hide scrollbar cleanly for mobile horizontal mode ribbon if needed */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="ink-texture flex flex-col items-center justify-between py-3 px-3 sm:py-4 sm:px-6">
+
+  <!-- Top Header & 6-Mode Switcher -->
+  <header class="w-full max-w-5xl flex flex-col items-center gap-2.5 mb-2.5">
+    <div class="flex items-center gap-3 text-center">
+      <span class="h-[1px] w-8 sm:w-14 bg-gradient-to-r from-transparent to-[#c9a96e]"></span>
+      <h1 class="text-lg sm:text-2xl md:text-3xl font-bold tracking-[0.16em] text-[#f2e6cf] drop-shadow">
+        畫室棋局・六合手談雅戲圖
+      </h1>
+      <span class="h-[1px] w-8 sm:w-14 bg-gradient-to-l from-transparent to-[#c9a96e]"></span>
+    </div>
+
+    <!-- 6 Game Mode Tabs + Difficulty Selector -->
+    <div class="w-full flex flex-col md:flex-row items-center justify-center gap-2">
+      <div class="w-full md:w-auto max-w-full overflow-x-auto no-scrollbar flex justify-start sm:justify-center">
+        <div class="inline-flex flex-nowrap sm:flex-wrap justify-center gap-1 rounded-xl p-1 bg-[#14131b] border border-[#c9a96e]/35 shadow-inner">
+          <button id="btnModeGomoku" onclick="switchMode('gomoku')"
+            class="mode-tab tab-active whitespace-nowrap px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold tracking-wider border border-transparent transition-all">
+            五子連珠
+          </button>
+          <button id="btnModeWeiqi" onclick="switchMode('weiqi')"
+            class="mode-tab whitespace-nowrap px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold tracking-wider text-[#bfb39b] border border-transparent transition-all">
+            九路手談
+          </button>
+          <button id="btnModeUttt" onclick="switchMode('uttt')"
+            class="mode-tab whitespace-nowrap px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold tracking-wider text-[#bfb39b] border border-transparent transition-all">
+            水墨九宮
+          </button>
+          <button id="btnModeDarkchess" onclick="switchMode('darkchess')"
+            class="mode-tab whitespace-nowrap px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold tracking-wider text-[#bfb39b] border border-transparent transition-all">
+            楚河暗棋
+          </button>
+          <button id="btnModeDots" onclick="switchMode('dots')"
+            class="mode-tab whitespace-nowrap px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold tracking-wider text-[#bfb39b] border border-transparent transition-all">
+            星羅圍城
+          </button>
+          <button id="btnModeReversi" onclick="switchMode('reversi')"
+            class="mode-tab whitespace-nowrap px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold tracking-wider text-[#bfb39b] border border-transparent transition-all">
+            黑白翻天
+          </button>
+        </div>
+      </div>
+
+      <!-- Difficulty Selector -->
+      <div class="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 bg-[#14131b] border border-[#c9a96e]/35 shrink-0">
+        <span class="text-xs text-[#b5a484] pl-0.5">棋力：</span>
+        <select id="difficultySelect" onchange="changeDifficulty()"
+          class="bg-transparent text-xs font-semibold text-[#f0e3c8] focus:outline-none cursor-pointer pr-1">
+          <option value="easy" class="bg-[#181720] text-[#ede6d6]">讓子試手</option>
+          <option value="normal" selected class="bg-[#181720] text-[#ede6d6]">正常對弈</option>
+          <option value="strict" class="bg-[#181720] text-[#ede6d6]">嚴師不讓</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Arena: Board + Side Info / Commentary -->
+  <main class="w-full max-w-5xl flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-4 sm:gap-6 my-auto">
+
+    <!-- Left / Top: Chessboard Container -->
+    <div class="w-full max-w-[min(92vw,530px)] aspect-square board-shell rounded-2xl p-2.5 sm:p-4 relative flex items-center justify-center">
+      <span class="absolute top-1.5 left-1.5 w-2 h-2 rounded-full bg-[#c9a96e]/60"></span>
+      <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#c9a96e]/60"></span>
+      <span class="absolute bottom-1.5 left-1.5 w-2 h-2 rounded-full bg-[#c9a96e]/60"></span>
+      <span class="absolute bottom-1.5 right-1.5 w-2 h-2 rounded-full bg-[#c9a96e]/60"></span>
+
+      <div id="canvasWrapper" class="w-full h-full rounded-xl overflow-hidden relative">
+        <canvas id="boardCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Right / Bottom: Mentor Commentary & Status Panel -->
+    <aside class="w-full max-w-[min(92vw,530px)] lg:w-[350px] gold-frame rounded-2xl bg-[#16151e]/95 p-4 sm:p-5 flex flex-col justify-between gap-3.5">
+
+      <!-- Players Card -->
+      <div class="space-y-2.5">
+        <div class="flex items-center justify-between text-xs tracking-widest text-[#b5a484] border-b border-[#c9a96e]/25 pb-1.5">
+          <span id="arenaTitleLabel">案頭對陣・五子連珠</span>
+          <span id="moveCounter" class="text-[#e3c78d] font-semibold">第 0 手</span>
+        </div>
+
+        <!-- Opponent: Kuronushi -->
+        <div id="aiCard" class="flex items-center justify-between p-2.5 rounded-xl bg-[#111017] border border-[#c9a96e]/25 transition-all">
+          <div class="flex items-center gap-3">
+            <div id="aiStoneIcon" class="w-7 h-7 rounded-full shadow-lg flex-shrink-0 border border-[#9e2a2b]/70"
+                 style="background: radial-gradient(circle at 32% 30%, #48465a 0%, #15141c 55%, #07070a 100%);"></div>
+            <div>
+              <div class="text-sm font-bold text-[#f0e5cf] flex items-center gap-1.5">
+                先生・黑主
+                <span id="aiColorLabel" class="text-[11px] px-1.5 py-0.5 rounded bg-[#9e2a2b]/30 text-[#e8b4b5] border border-[#9e2a2b]/40">執黑</span>
+              </div>
+              <div class="text-[11px] text-[#9c917e]">極陰墨子・千年畫靈</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <span id="aiTurnBadge" class="hidden text-xs font-semibold text-[#e68a8b] tracking-wider">思忖中…</span>
+            <div id="aiScoreBox" class="hidden text-xs text-[#cbb894]"><span id="aiScoreLabel">提子</span>：<span id="aiScoreVal" class="font-bold text-white">0</span></div>
+          </div>
+        </div>
+
+        <!-- Player: Young Lady -->
+        <div id="playerCard" class="flex items-center justify-between p-2.5 rounded-xl bg-[#1d1a26] border border-[#c9a96e]/65 transition-all">
+          <div class="flex items-center gap-3">
+            <div id="playerStoneIcon" class="w-7 h-7 rounded-full shadow-lg flex-shrink-0 turn-aura border border-[#d8b4fe]/80"
+                 style="background: radial-gradient(circle at 32% 28%, #ffffff 0%, #f3e8ff 58%, #cbb6e6 100%); box-shadow: 0 0 12px rgba(192, 132, 252, 0.45);"></div>
+            <div>
+              <div class="text-sm font-bold text-[#fff8eb] flex items-center gap-1.5">
+                大小姐
+                <span id="playerColorLabel" class="text-[11px] px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-200 border border-purple-400/40">執白</span>
+              </div>
+              <div class="text-[11px] text-[#b8a992]">紫焰玉子・玲瓏心眼</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <span id="playerTurnBadge" class="text-xs font-semibold text-[#e6c88a] tracking-wider">請落子</span>
+            <div id="playerScoreBox" class="hidden text-xs text-[#cbb894]"><span id="playerScoreLabel">提子</span>：<span id="playerScoreVal" class="font-bold text-white">0</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kuronushi's Desk Commentary Box (案頭批註) -->
+      <div class="flex-1 flex flex-col justify-between rounded-xl bg-gradient-to-b from-[#121118] to-[#191622] border border-[#c9a96e]/35 p-3.5 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-xs font-bold tracking-[0.2em] text-[#c9a96e] flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rotate-45 bg-[#9e2a2b] inline-block"></span>
+            案頭批註
+          </span>
+          <span id="modeSubHint" class="text-[11px] text-[#8e826e]">五子連珠先成者勝</span>
+        </div>
+
+        <p id="commentaryText" class="text-sm sm:text-[15px] leading-relaxed text-[#efe5d1] italic my-auto py-1">
+          「棋秤已鋪妥，茶煙也正溫著。大小姐今日執紫焰玉子，先請落子吧——可別一上來就急著跳步。」
+        </p>
+
+        <div class="text-right text-[11px] text-[#9c8c72] mt-1">
+          —— 先生 批於紫檀案頭
+        </div>
+      </div>
+
+      <!-- Weiqi Extra Action (Pass / Score) -->
+      <div id="weiqiControls" class="hidden grid grid-cols-2 gap-2">
+        <button onclick="passWeiqiTurn()" id="btnPass" class="btn-classical py-2 px-3 rounded-xl text-xs font-semibold tracking-wider">
+          虛著停一手 (Pass)
+        </button>
+        <button onclick="finishWeiqiGame()" id="btnScoreWeiqi" class="btn-classical py-2 px-3 rounded-xl text-xs font-semibold tracking-wider">
+          終局點目清算
+        </button>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- Bottom Action Controls (Outside Canvas) -->
+  <footer class="w-full max-w-4xl flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-2.5 pt-1">
+    <button id="btnUndo" onclick="undoMove()" class="btn-classical px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold tracking-wider flex items-center gap-1.5">
+      <span>↩</span> 悔棋一著
+    </button>
+
+    <button id="btnSwap" onclick="swapSides()" class="btn-classical px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold tracking-wider flex items-center gap-1.5">
+      <span>⇄</span> 先後／陣營互換
+    </button>
+
+    <button id="btnSound" onclick="toggleSound()" class="btn-classical px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold tracking-wider flex items-center gap-1.5">
+      <span id="soundIcon">🔇</span> <span id="soundLabel">清音：靜</span>
+    </button>
+
+    <button id="btnNew" onclick="resetGame()" class="btn-crimson px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold tracking-wider flex items-center gap-1.5">
+      <span>✦</span> 重開一局
+    </button>
+  </footer>
+
+  <!-- Custom End-of-Game / Notice Modal -->
+  <div id="resultModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-backdrop">
+    <div class="w-full max-w-md gold-frame rounded-2xl bg-[#181620] p-6 text-center space-y-4 transform transition-all">
+      <div class="inline-block px-3 py-1 rounded-full text-xs tracking-[0.25em] bg-[#9e2a2b]/30 text-[#f3c6c7] border border-[#c9a96e]/40">
+        棋局已定
+      </div>
+      <h2 id="modalTitle" class="text-2xl font-bold text-[#f6ebd6] tracking-widest">勝敗已分</h2>
+      <p id="modalDesc" class="text-sm sm:text-base leading-relaxed text-[#dfd3bc] px-2">
+        批註內容
+      </p>
+      <div class="pt-2 flex items-center justify-center gap-3">
+        <button onclick="closeModal()" class="btn-classical px-5 py-2.5 rounded-xl text-sm font-semibold">
+          細看棋盤
+        </button>
+        <button onclick="closeModal(); resetGame();" class="btn-crimson px-6 py-2.5 rounded-xl text-sm font-bold">
+          再弈一局
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * 畫室棋局・六合手談雅戲圖
+     * 6-in-1 Classical Ink-Wash Board Suite:
+     * 1. gomoku    - 五子連珠 (15x15 Gomoku)
+     * 2. weiqi     - 九路手談 (9x9 Weiqi / Go)
+     * 3. uttt      - 水墨九宮 (Ultimate Tic-Tac-Toe)
+     * 4. darkchess - 楚河暗棋 (4x8 Chinese Dark Chess / Banqi)
+     * 5. dots      - 星羅圍城 (5x5 Boxes / 6x6 Dots and Boxes)
+     * 6. reversi   - 黑白翻天 (8x8 Reversi / Othello)
+     */
+
+    const STATE = {
+      mode: 'gomoku',
+      difficulty: 'normal',    // 'easy' | 'normal' | 'strict'
+      playerSide: 1,           // 1 = Player starts first (or Red in Dark Chess), 2 = AI starts first (or Black)
+      turn: 1,                 // 1 = Side 1, 2 = Side 2
+      moveCount: 0,
+      history: [],
+      hoverPos: null,
+      gameOver: false,
+      aiThinking: false,
+      soundEnabled: false,     // Default silent-friendly for study hall
+
+      // Mode 1 & 2: Gomoku / Weiqi
+      size: 15,
+      board: Array.from({ length: 15 }, () => Array(15).fill(0)),
+      lastMove: null,
+      winLine: null,
+      captures: { 1: 0, 2: 0 },
+      koBoardKey: null,
+      consecutivePasses: 0,
+
+      // Mode 3: Ultimate Tic-Tac-Toe
+      uttt: {
+        cells: [],             // 9 macro boards x 9 cells (0=empty, 1=player O, 2=ai X)
+        macroWinners: [],      // 9 entries: 0=open, 1=player, 2=ai, 3=draw
+        activeMacro: -1,       // -1 = any open macro board, 0..8 = forced macro board
+        lastCell: null,        // { m, c }
+        macroWinLine: null     // [m1, m2, m3]
+      },
+
+      // Mode 4: Chinese Dark Chess (4 rows x 8 cols)
+      dc: {
+        grid: [],              // 4x8: null or { side: 'red'|'black', rank: 1..7, name, revealed: bool }
+        playerColor: null,     // 'red' | 'black' | null (decided on first flip unless swapped)
+        aiColor: null,
+        selected: null,        // { r, c }
+        validTargets: [],      // [{ r, c, type: 'move'|'capture' }]
+        lastAction: null,      // { fromR, fromC, toR, toC }
+        eatenByPlayer: [],
+        eatenByAi: []
+      },
+
+      // Mode 5: Dots and Boxes (6x6 dots -> 5x5 boxes)
+      dots: {
+        n: 6,                  // 6x6 dots => 5x5 boxes
+        hEdges: [],            // 6 rows x 5 cols (0=none, 1=player, 2=ai)
+        vEdges: [],            // 5 rows x 6 cols
+        boxes: [],             // 5 rows x 5 cols (0=none, 1=player, 2=ai)
+        scores: { 1: 0, 2: 0 },
+        lastEdge: null         // { type: 'h'|'v', r, c }
+      },
+
+      // Mode 6: Reversi (8x8)
+      reversi: {
+        board: [],             // 8x8 (0=empty, 1=side1, 2=side2)
+        validMoves: [],        // [{ r, c, flips: [] }]
+        lastMove: null,
+        flippedCells: []       // [{ r, c }]
+      }
+    };
+
+    const canvas = document.getElementById('boardCanvas');
+    const ctx = canvas.getContext('2d');
+    let audioCtx = null;
+
+    // --- Mode Metadata ---
+    const MODE_META = {
+      gomoku: {
+        title: '案頭對陣・五子連珠',
+        hint: '五子連珠先成者勝',
+        scoreLabel: null,
+        btnId: 'btnModeGomoku'
+      },
+      weiqi: {
+        title: '案頭對陣・九路手談',
+        hint: '九路手談・氣盡提子',
+        scoreLabel: '提子',
+        btnId: 'btnModeWeiqi'
+      },
+      uttt: {
+        title: '案頭對陣・水墨九宮',
+        hint: '落子定宮・連成三宮為勝',
+        scoreLabel: '已佔宮格',
+        btnId: 'btnModeUttt'
+      },
+      darkchess: {
+        title: '案頭對陣・楚河暗棋',
+        hint: '翻子定陣・炮隔山打・兵卒剋帥',
+        scoreLabel: '已擒敵將',
+        btnId: 'btnModeDarkchess'
+      },
+      dots: {
+        title: '案頭對陣・星羅圍城',
+        hint: '畫線封城・成方蓋印再添一手',
+        scoreLabel: '封城印數',
+        btnId: 'btnModeDots'
+      },
+      reversi: {
+        title: '案頭對陣・黑白翻天',
+        hint: '兩頭夾擊・翻轉易主・多子為勝',
+        scoreLabel: '盤面子數',
+        btnId: 'btnModeReversi'
+      }
+    };
+
+    // --- Classical Mentor Commentary Lines ---
+    const LINES = {
+      gomokuStart1: [
+        "「棋秤已鋪妥，茶煙也正溫著。大小姐今日先手，先請落子吧——可別一上來就急著跳步。」",
+        "「先手既歸大小姐，先生便在對面執盞靜觀。落子無悔，且看你第一著往何處點。」"
+      ],
+      gomokuStart2: [
+        "「既是先生先手，這天元一帶的氣勢，先生可就先一步占下了。大小姐，輪到你接招。」",
+        "「小螃蟹今日願後發制人？行，先生先落一子試試你的成色。」"
+      ],
+      weiqiStart: [
+        "「九路手談最考寸土必爭與氣眼算度。大小姐請落子，切莫貪吃而自塞氣眼。」"
+      ],
+      utttStart: [
+        "「大九宮套小九宮，你落哪一格，便逼著對方往哪座宮格裡走——聲東擊西最是精妙，請吧。」"
+      ],
+      darkchessStart: [
+        "「三十二枚暗子覆於楚河漢界，首翻定紅黑。小螃蟹手氣向來不差，先翻一枚試試？」"
+      ],
+      dotsStart: [
+        "「星羅點陣之間，誰封住第四筆便蓋下一枚朱紫印章且再添一手——留神別替先生搭了橋。」"
+      ],
+      reversiStart: [
+        "「六十四格方陣，四角為兵家必爭之地。不到最後一子落定，勝負皆可翻盤，請落子。」"
+      ],
+      playerGood: [
+        "「這步落子倒有幾分殺氣，思路比平日算數學時利落多了。」",
+        "「嗯，眼界沒走偏，這一著卡在要害上，先生准你得意半刻。」",
+        "「好一招暗度陳倉——小螃蟹這雙眼睛倒是越來越毒辣了。」",
+        "「穩紮穩打，不貪快、不漏空，這才像先生手把手教出來的棋風。」"
+      ],
+      aiBlock: [
+        "「小螃蟹想偷襲？先生這雙眼睛可看著呢，這條路替你封死了。」",
+        "「算盤打得挺響，可惜這一步先生早兩手便算到了。」",
+        "「想在先生眼皮底下連成線？還差點火候，乖乖另尋出路吧。」"
+      ],
+      aiAttack: [
+        "「大小姐若是光顧著看前頭，後背這道防線可就要被先生撕開了。」",
+        "「這步棋先生可沒留情——小螃蟹若不趕緊回防，待會兒又要嚷著討賴了。」"
+      ],
+      utttSendFree: [
+        "「小螃蟹這一子竟把先生送進了已封宮的自由局？那先生可就不客氣、隨意挑處要害落墨了。」"
+      ],
+      utttCapture: [
+        "「好一記落印封宮！這座小九宮既歸大小姐，大局氣勢頓時盛了三分。」"
+      ],
+      dcFlip: [
+        "「翻開這枚暗子，局勢又添幾分變數——留神旁邊可還蹲著虎視眈眈的炮與馬。」"
+      ],
+      dcCapture: [
+        "「手起子落，這員大將先生便替你收進墨匣了——戰場無情，下步可要護好帥帳。」"
+      ],
+      dotsChain: [
+        "「一口氣連封數城、朱印連蓋？小螃蟹這算盤珠子撥得真響，先生差點著了道。」"
+      ],
+      dotsGift: [
+        "「哦？竟主動替先生拆開第三道邊線？既如此，這幾座城池先生便笑納了。」"
+      ],
+      reversiCorner: [
+        "「穩穩佔下邊角要津，整條邊線皆成鐵壁——大小姐這手棋極具大局觀。」"
+      ],
+      undo: [
+        "「又想悔棋？也罷，誰叫先生偏心縱著你——僅此一回，落子前先看清全局。」",
+        "「小螃蟹又耍賴討悔一著，先生這回且退一步，下回可不許再心急手滑了。」"
+      ],
+      playerWin: [
+        "「這一局算你險勝，棋鋒凌厲、步步為營——下回可沒這麼容易讓著你，過來討盞溫茶歇歇吧。」",
+        "「竟真叫大小姐破了先生的局。罷了，贏了先生是你的本事，今夜案頭這盞茶算先生賞你的。」"
+      ],
+      aiWin: [
+        "「承讓了，大小姐。方才中盤那處空門露得太早——可不許氣鼓鼓地掀棋盤，再來一局便是。」",
+        "「輸給千年畫靈不算丟人，倒是你剛才那幾步太急著進攻、忘了護住自己，先生且記在帳上了。」"
+      ]
+    };
+
+    function pickLine(category) {
+      const arr = LINES[category] || LINES.playerGood;
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function setCommentary(text) {
+      const el = document.getElementById('commentaryText');
+      el.style.opacity = '0.35';
+      setTimeout(() => {
+        el.textContent = text;
+        el.style.opacity = '1';
+      }, 85);
+    }
+
+    // --- Web Audio API Sound Synthesis (Silent by default for study hall) ---
+    function playTone(type = 'stone') {
+      if (!STATE.soundEnabled) return;
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        if (type === 'brush') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(240, now + 0.08);
+          gain.gain.setValueAtTime(0.14, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.085);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.09);
+        } else if (type === 'seal') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(340, now);
+          osc.frequency.exponentialRampToValueAtTime(110, now + 0.11);
+          gain.gain.setValueAtTime(0.24, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.125);
+        } else {
+          // Crisp stone / wooden tile clack
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(type === 'capture' ? 920 : 760, now);
+          osc.frequency.exponentialRampToValueAtTime(140, now + 0.055);
+          gain.gain.setValueAtTime(0.22, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.065);
+        }
+      } catch (e) {}
+    }
+
+    function toggleSound() {
+      STATE.soundEnabled = !STATE.soundEnabled;
+      document.getElementById('soundIcon').textContent = STATE.soundEnabled ? '🔊' : '🔇';
+      document.getElementById('soundLabel').textContent = STATE.soundEnabled ? '清音：開' : '清音：靜';
+      if (STATE.soundEnabled) playTone('stone');
+    }
+
+    // --- Mode & Difficulty Management ---
+    function switchMode(newMode) {
+      if (STATE.mode === newMode) return;
+      STATE.mode = newMode;
+
+      // Update Tab styles
+      document.querySelectorAll('.mode-tab').forEach(btn => {
+        btn.classList.remove('tab-active');
+        btn.classList.add('text-[#bfb39b]');
+      });
+      const activeBtn = document.getElementById(MODE_META[newMode].btnId);
+      if (activeBtn) {
+        activeBtn.classList.add('tab-active');
+        activeBtn.classList.remove('text-[#bfb39b]');
+      }
+
+      // Show/Hide Weiqi extra buttons
+      const weiqiControls = document.getElementById('weiqiControls');
+      if (newMode === 'weiqi') {
+        weiqiControls.classList.remove('hidden');
+      } else {
+        weiqiControls.classList.add('hidden');
+      }
+
+      document.getElementById('arenaTitleLabel').textContent = MODE_META[newMode].title;
+      document.getElementById('modeSubHint').textContent = MODE_META[newMode].hint;
+
+      resetGame();
+    }
+
+    function changeDifficulty() {
+      STATE.difficulty = document.getElementById('difficultySelect').value;
+      const mapText = {
+        easy: '「行，先生便收起三分鋒芒，先讓大小姐幾分試試手。」',
+        normal: '「不偏不倚，按正常棋力對弈——大小姐可要留神了。」',
+        strict: '「選了『嚴師不讓』？好膽識，這局先生可半步也不會放水。」'
+      };
+      setCommentary(mapText[STATE.difficulty]);
+    }
+
+    function swapSides() {
+      if (STATE.aiThinking) return;
+      STATE.playerSide = STATE.playerSide === 1 ? 2 : 1;
+      resetGame();
+    }
+
+    // --- Deep Snapshot & Undo System ---
+    function saveSnapshot() {
+      STATE.history.push(JSON.stringify({
+        turn: STATE.turn,
+        moveCount: STATE.moveCount,
+        board: STATE.board,
+        lastMove: STATE.lastMove,
+        captures: STATE.captures,
+        koBoardKey: STATE.koBoardKey,
+        uttt: STATE.uttt,
+        dc: STATE.dc,
+        dots: STATE.dots,
+        reversi: STATE.reversi
+      }));
+    }
+
+    function undoMove() {
+      if (STATE.history.length === 0 || STATE.aiThinking) return;
+      // Pop back until it is player's turn (1 = player)
+      let restored = null;
+      while (STATE.history.length > 0) {
+        const snap = JSON.parse(STATE.history.pop());
+        if (snap.turn === 1) {
+          restored = snap;
+          break;
+        }
+      }
+      if (!restored && STATE.history.length > 0) {
+        restored = JSON.parse(STATE.history.pop());
+      }
+      if (restored) {
+        STATE.turn = restored.turn;
+        STATE.moveCount = restored.moveCount;
+        STATE.board = restored.board;
+        STATE.lastMove = restored.lastMove;
+        STATE.captures = restored.captures;
+        STATE.koBoardKey = restored.koBoardKey;
+        STATE.uttt = restored.uttt;
+        STATE.dc = restored.dc;
+        STATE.dots = restored.dots;
+        STATE.reversi = restored.reversi;
+        STATE.winLine = null;
+        STATE.gameOver = false;
+        STATE.consecutivePasses = 0;
+
+        setCommentary(pickLine('undo'));
+        updateSideBadgesAndScores();
+        drawBoard();
+      }
+    }
+
+    // --- Master Reset ---
+    function resetGame() {
+      STATE.history = [];
+      STATE.hoverPos = null;
+      STATE.gameOver = false;
+      STATE.aiThinking = false;
+      STATE.moveCount = 0;
+      STATE.turn = STATE.playerSide; // 1 = Player starts, 2 = AI starts
+
+      if (STATE.mode === 'gomoku' || STATE.mode === 'weiqi') {
+        STATE.size = STATE.mode === 'gomoku' ? 15 : 9;
+        STATE.board = Array.from({ length: STATE.size }, () => Array(STATE.size).fill(0));
+        STATE.lastMove = null;
+        STATE.winLine = null;
+        STATE.captures = { 1: 0, 2: 0 };
+        STATE.koBoardKey = null;
+        STATE.consecutivePasses = 0;
+      } else if (STATE.mode === 'uttt') {
+        STATE.uttt = {
+          cells: Array.from({ length: 9 }, () => Array(9).fill(0)),
+          macroWinners: Array(9).fill(0),
+          activeMacro: -1,
+          lastCell: null,
+          macroWinLine: null
+        };
+      } else if (STATE.mode === 'darkchess') {
+        initDarkChess();
+      } else if (STATE.mode === 'dots') {
+        const n = 6;
+        STATE.dots = {
+          n,
+          hEdges: Array.from({ length: n }, () => Array(n - 1).fill(0)),
+          vEdges: Array.from({ length: n - 1 }, () => Array(n).fill(0)),
+          boxes: Array.from({ length: n - 1 }, () => Array(n - 1).fill(0)),
+          scores: { 1: 0, 2: 0 },
+          lastEdge: null
+        };
+      } else if (STATE.mode === 'reversi') {
+        initReversi();
+      }
+
+      updateSideBadgesAndScores();
+      drawBoard();
+
+      // Opening commentary & AI first turn if playerSide === 2
+      if (STATE.turn === 2) {
+        if (STATE.mode === 'gomoku') setCommentary(pickLine('gomokuStart2'));
+        else setCommentary('「既是先生先手，這開局之機先生便先收下了。大小姐請看招。」');
+        triggerAiMove(420);
+      } else {
+        if (STATE.mode === 'gomoku') setCommentary(pickLine('gomokuStart1'));
+        else if (STATE.mode === 'weiqi') setCommentary(pickLine('weiqiStart'));
+        else if (STATE.mode === 'uttt') setCommentary(pickLine('utttStart'));
+        else if (STATE.mode === 'darkchess') setCommentary(pickLine('darkchessStart'));
+        else if (STATE.mode === 'dots') setCommentary(pickLine('dotsStart'));
+        else if (STATE.mode === 'reversi') setCommentary(pickLine('reversiStart'));
+      }
+    }
+
+    function updateSideBadgesAndScores() {
+      document.getElementById('moveCounter').textContent = `第 ${STATE.moveCount} 手`;
+
+      const aiCard = document.getElementById('aiCard');
+      const playerCard = document.getElementById('playerCard');
+      const aiBadge = document.getElementById('aiTurnBadge');
+      const playerBadge = document.getElementById('playerTurnBadge');
+      const aiStone = document.getElementById('aiStoneIcon');
+      const playerStone = document.getElementById('playerStoneIcon');
+      const aiLabel = document.getElementById('aiColorLabel');
+      const playerLabel = document.getElementById('playerColorLabel');
+
+      const aiScoreBox = document.getElementById('aiScoreBox');
+      const playerScoreBox = document.getElementById('playerScoreBox');
+      const meta = MODE_META[STATE.mode];
+
+      if (meta.scoreLabel) {
+        aiScoreBox.classList.remove('hidden');
+        playerScoreBox.classList.remove('hidden');
+        document.getElementById('aiScoreLabel').textContent = meta.scoreLabel;
+        document.getElementById('playerScoreLabel').textContent = meta.scoreLabel;
+
+        let pVal = 0, aVal = 0;
+        if (STATE.mode === 'weiqi') {
+          pVal = STATE.captures[1];
+          aVal = STATE.captures[2];
+        } else if (STATE.mode === 'uttt') {
+          pVal = STATE.uttt.macroWinners.filter(w => w === 1).length;
+          aVal = STATE.uttt.macroWinners.filter(w => w === 2).length;
+        } else if (STATE.mode === 'darkchess') {
+          pVal = STATE.dc.eatenByPlayer.length;
+          aVal = STATE.dc.eatenByAi.length;
+        } else if (STATE.mode === 'dots') {
+          pVal = STATE.dots.scores[1];
+          aVal = STATE.dots.scores[2];
+        } else if (STATE.mode === 'reversi') {
+          const cnt = countReversiStones();
+          pVal = cnt.p;
+          aVal = cnt.a;
+        }
+        document.getElementById('playerScoreVal').textContent = pVal;
+        document.getElementById('aiScoreVal').textContent = aVal;
+      } else {
+        aiScoreBox.classList.add('hidden');
+        playerScoreBox.classList.add('hidden');
+      }
+
+      // Labels per mode
+      if (STATE.mode === 'darkchess') {
+        if (!STATE.dc.playerColor) {
+          playerLabel.textContent = STATE.playerSide === 1 ? '先翻定陣' : '後手待定';
+          aiLabel.textContent = STATE.playerSide === 2 ? '先翻定陣' : '後手待定';
+        } else if (STATE.dc.playerColor === 'red') {
+          playerLabel.textContent = '執朱紅軍';
+          aiLabel.textContent = '執玄墨軍';
+        } else {
+          playerLabel.textContent = '執玄墨軍';
+          aiLabel.textContent = '執朱紅軍';
+        }
+      } else if (STATE.mode === 'uttt') {
+        playerLabel.textContent = '紫焰玉環 (O)';
+        aiLabel.textContent = '極陰墨叉 (X)';
+      } else if (STATE.mode === 'dots') {
+        playerLabel.textContent = '紫焰朱印';
+        aiLabel.textContent = '玄墨印章';
+      } else {
+        playerLabel.textContent = STATE.playerSide === 1 ? '紫焰玉子・先' : '紫焰玉子・後';
+        aiLabel.textContent = STATE.playerSide === 2 ? '極陰墨子・先' : '極陰墨子・後';
+      }
+
+      if (STATE.gameOver) {
+        aiBadge.classList.add('hidden');
+        playerBadge.textContent = '對局已畢';
+        aiStone.classList.remove('turn-aura');
+        playerStone.classList.remove('turn-aura');
+      } else if (STATE.turn === 1) {
+        playerCard.classList.add('border-[#c9a96e]/75', 'bg-[#1f1b29]');
+        playerCard.classList.remove('border-[#c9a96e]/25', 'bg-[#111017]');
+        aiCard.classList.add('border-[#c9a96e]/25', 'bg-[#111017]');
+        aiCard.classList.remove('border-[#c9a96e]/75', 'bg-[#1f1b29]');
+        playerBadge.textContent = '請落子';
+        playerBadge.classList.remove('hidden');
+        aiBadge.classList.add('hidden');
+        playerStone.classList.add('turn-aura');
+        aiStone.classList.remove('turn-aura');
+      } else {
+        aiCard.classList.add('border-[#c9a96e]/75', 'bg-[#1f1b29]');
+        aiCard.classList.remove('border-[#c9a96e]/25', 'bg-[#111017]');
+        playerCard.classList.add('border-[#c9a96e]/25', 'bg-[#111017]');
+        playerCard.classList.remove('border-[#c9a96e]/75', 'bg-[#1f1b29]');
+        aiBadge.classList.remove('hidden');
+        playerBadge.textContent = '靜候落子';
+        aiStone.classList.add('turn-aura');
+        playerStone.classList.remove('turn-aura');
+      }
+
+      document.getElementById('btnUndo').disabled = STATE.history.length === 0 || STATE.aiThinking;
+    }
+
+    // --- Canvas Resize & Dispatcher ---
+    function resizeCanvas() {
+      const wrapper = document.getElementById('canvasWrapper');
+      const rect = wrapper.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawBoard();
+    }
+
+    function getCanvasSize() {
+      return document.getElementById('canvasWrapper').getBoundingClientRect().width;
+    }
+
+    function drawWoodenBase(sizePx) {
+      const bgGrad = ctx.createRadialGradient(
+        sizePx * 0.45, sizePx * 0.4, sizePx * 0.05,
+        sizePx * 0.5, sizePx * 0.5, sizePx * 0.78
+      );
+      bgGrad.addColorStop(0, '#c89d62');
+      bgGrad.addColorStop(0.65, '#b08349');
+      bgGrad.addColorStop(1, '#8c6231');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, sizePx, sizePx);
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(56, 34, 12, 0.07)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < sizePx; i += 6) {
+        ctx.beginPath();
+        ctx.moveTo(0, i + Math.sin(i * 0.04) * 2);
+        ctx.lineTo(sizePx, i + Math.cos(i * 0.04) * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawBoard() {
+      const sizePx = getCanvasSize();
+      if (!sizePx) return;
+
+      if (STATE.mode === 'gomoku' || STATE.mode === 'weiqi') drawGomokuOrWeiqi(sizePx);
+      else if (STATE.mode === 'uttt') drawUttt(sizePx);
+      else if (STATE.mode === 'darkchess') drawDarkChess(sizePx);
+      else if (STATE.mode === 'dots') drawDotsAndBoxes(sizePx);
+      else if (STATE.mode === 'reversi') drawReversi(sizePx);
+    }
+
+    // --- Pointer Event Handling ---
+    function getPointerPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: clientX - rect.left, y: clientY - rect.top, sizePx: rect.width };
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (STATE.gameOver || STATE.turn !== 1 || STATE.aiThinking) return;
+      const { x, y, sizePx } = getPointerPos(e);
+      updateHover(x, y, sizePx);
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      STATE.hoverPos = null;
+      drawBoard();
+    });
+
+    canvas.addEventListener('click', (e) => {
+      if (STATE.gameOver || STATE.turn !== 1 || STATE.aiThinking) return;
+      const { x, y, sizePx } = getPointerPos(e);
+      handleBoardClick(x, y, sizePx);
+    });
+
+    function updateHover(x, y, sizePx) {
+      let nextHover = null;
+      if (STATE.mode === 'gomoku' || STATE.mode === 'weiqi') {
+        const pad = sizePx * (STATE.size === 15 ? 0.055 : 0.085);
+        const cell = (sizePx - pad * 2) / (STATE.size - 1);
+        const c = Math.round((x - pad) / cell);
+        const r = Math.round((y - pad) / cell);
+        if (r >= 0 && r < STATE.size && c >= 0 && c < STATE.size) {
+          if (Math.hypot(x - (pad + c * cell), y - (pad + r * cell)) <= cell * 0.48) {
+            nextHover = { r, c };
+          }
+        }
+      } else if (STATE.mode === 'uttt') {
+        nextHover = hitTestUttt(x, y, sizePx);
+      } else if (STATE.mode === 'dots') {
+        nextHover = hitTestDotsEdge(x, y, sizePx);
+      } else if (STATE.mode === 'reversi') {
+        nextHover = hitTestReversi(x, y, sizePx);
+      }
+      if (JSON.stringify(nextHover) !== JSON.stringify(STATE.hoverPos)) {
+        STATE.hoverPos = nextHover;
+        drawBoard();
+      }
+    }
+
+    function handleBoardClick(x, y, sizePx) {
+      if (STATE.mode === 'gomoku' || STATE.mode === 'weiqi') {
+        const pad = sizePx * (STATE.size === 15 ? 0.055 : 0.085);
+        const cell = (sizePx - pad * 2) / (STATE.size - 1);
+        const c = Math.round((x - pad) / cell);
+        const r = Math.round((y - pad) / cell);
+        if (r >= 0 && r < STATE.size && c >= 0 && c < STATE.size) {
+          if (Math.hypot(x - (pad + c * cell), y - (pad + r * cell)) <= cell * 0.48) {
+            attemptGomokuOrWeiqiMove(r, c, 1);
+          }
+        }
+      } else if (STATE.mode === 'uttt') {
+        const hit = hitTestUttt(x, y, sizePx);
+        if (hit) attemptUtttMove(hit.m, hit.c, 1);
+      } else if (STATE.mode === 'darkchess') {
+        const hit = hitTestDarkChess(x, y, sizePx);
+        if (hit) handleDarkChessClick(hit.r, hit.c);
+      } else if (STATE.mode === 'dots') {
+        const edge = hitTestDotsEdge(x, y, sizePx);
+        if (edge) attemptDotsMove(edge.type, edge.r, edge.c, 1);
+      } else if (STATE.mode === 'reversi') {
+        const cell = hitTestReversi(x, y, sizePx);
+        if (cell) attemptReversiMove(cell.r, cell.c, 1);
+      }
+    }
+
+    // =========================================================================
+    // MODE 1 & 2: GOMOKU (15x15) & WEIQI (9x9)
+    // =========================================================================
+    function drawStoneVisual(x, y, radius, side) {
+      // side 1 = Young Lady (紫焰玉子), side 2 = Kuronushi (極陰墨子)
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.58)';
+      ctx.shadowBlur = radius * 0.35;
+      ctx.shadowOffsetX = radius * 0.12;
+      ctx.shadowOffsetY = radius * 0.18;
+
+      if (side === 2) {
+        const grad = ctx.createRadialGradient(x - radius * 0.32, y - radius * 0.32, radius * 0.08, x, y, radius);
+        grad.addColorStop(0, '#54516b');
+        grad.addColorStop(0.35, '#1d1b26');
+        grad.addColorStop(0.85, '#0b0a10');
+        grad.addColorStop(1, '#1a0d12');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.strokeStyle = 'rgba(201, 169, 110, 0.25)';
+        ctx.lineWidth = 0.9;
+        ctx.stroke();
+      } else {
+        const grad = ctx.createRadialGradient(x - radius * 0.32, y - radius * 0.32, radius * 0.08, x, y, radius);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.62, '#f5ecff');
+        grad.addColorStop(0.88, '#d8c5ed');
+        grad.addColorStop(1, '#b69cd4');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.strokeStyle = 'rgba(139, 92, 246, 0.45)';
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawGomokuOrWeiqi(sizePx) {
+      drawWoodenBase(sizePx);
+      const pad = sizePx * (STATE.size === 15 ? 0.055 : 0.085);
+      const gridSpan = sizePx - pad * 2;
+      const cell = gridSpan / (STATE.size - 1);
+
+      ctx.strokeStyle = 'rgba(42, 24, 10, 0.72)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(pad - 4, pad - 4, gridSpan + 8, gridSpan + 8);
+
+      ctx.strokeStyle = 'rgba(34, 20, 8, 0.82)';
+      ctx.lineWidth = STATE.size === 15 ? 1.15 : 1.4;
+      for (let i = 0; i < STATE.size; i++) {
+        const pos = pad + i * cell;
+        ctx.beginPath();
+        ctx.moveTo(pad, pos);
+        ctx.lineTo(pad + gridSpan, pos);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pos, pad);
+        ctx.lineTo(pos, pad + gridSpan);
+        ctx.stroke();
+      }
+
+      const stars = STATE.size === 15
+        ? [[3, 3], [3, 7], [3, 11], [7, 3], [7, 7], [7, 11], [11, 3], [11, 7], [11, 11]]
+        : [[2, 2], [2, 6], [4, 4], [6, 2], [6, 6]];
+      ctx.fillStyle = '#241407';
+      for (const [r, c] of stars) {
+        ctx.beginPath();
+        ctx.arc(pad + c * cell, pad + r * cell, Math.max(2.6, cell * 0.11), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (!STATE.gameOver && STATE.turn === 1 && STATE.hoverPos) {
+        const { r, c } = STATE.hoverPos;
+        if (STATE.board[r] && STATE.board[r][c] === 0) {
+          ctx.save();
+          ctx.globalAlpha = 0.45;
+          drawStoneVisual(pad + c * cell, pad + r * cell, cell * 0.43, 1);
+          ctx.restore();
+        }
+      }
+
+      const stoneRadius = cell * 0.445;
+      for (let r = 0; r < STATE.size; r++) {
+        if (!STATE.board[r]) continue;
+        for (let c = 0; c < STATE.size; c++) {
+          const val = STATE.board[r][c];
+          if (val !== 0) {
+            drawStoneVisual(pad + c * cell, pad + r * cell, stoneRadius, val);
+          }
+        }
+      }
+
+      if (STATE.lastMove && STATE.board[STATE.lastMove.r]) {
+        const { r, c } = STATE.lastMove;
+        const x = pad + c * cell;
+        const y = pad + r * cell;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, Math.max(3, stoneRadius * 0.24), 0, Math.PI * 2);
+        ctx.fillStyle = STATE.board[r][c] === 2 ? '#e5c687' : '#9e2a2b';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (STATE.winLine && STATE.winLine.length >= 5) {
+        const first = STATE.winLine[0];
+        const last = STATE.winLine[STATE.winLine.length - 1];
+        ctx.save();
+        ctx.strokeStyle = '#9e2a2b';
+        ctx.lineWidth = Math.max(4, cell * 0.16);
+        ctx.lineCap = 'round';
+        ctx.shadowColor = 'rgba(255, 215, 130, 0.9)';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.moveTo(pad + first.c * cell, pad + first.r * cell);
+        ctx.lineTo(pad + last.c * cell, pad + last.r * cell);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function attemptGomokuOrWeiqiMove(r, c, side) {
+      if (STATE.board[r][c] !== 0) return false;
+
+      if (STATE.mode === 'gomoku') {
+        saveSnapshot();
+        STATE.board[r][c] = side;
+        STATE.lastMove = { r, c };
+        STATE.hoverPos = null;
+        STATE.moveCount++;
+        playTone('stone');
+
+        const winCells = checkGomokuWin(STATE.board, r, c, side);
+        if (winCells) {
+          STATE.winLine = winCells;
+          STATE.gameOver = true;
+          drawBoard();
+          updateSideBadgesAndScores();
+          const line = side === 1 ? pickLine('playerWin') : pickLine('aiWin');
+          setCommentary(line);
+          setTimeout(() => showModal(side === 1 ? '大小姐勝出・五子連珠' : '先生勝出・棋高一著', line), 450);
+          return true;
+        }
+
+        if (STATE.board.every(row => row.every(v => v !== 0))) {
+          STATE.gameOver = true;
+          drawBoard();
+          updateSideBadgesAndScores();
+          const msg = '「棋秤已滿、平分秋色。大小姐這手守得滴水不漏，倒叫先生也討不到半點便宜。」';
+          setCommentary(msg);
+          setTimeout(() => showModal('平分秋色・和棋收官', msg), 400);
+          return true;
+        }
+
+        if (side === 1 && evaluateGomokuPoint(STATE.board, r, c, 1) >= 2600) {
+          setCommentary(pickLine('playerGood'));
+        }
+
+        STATE.turn = side === 1 ? 2 : 1;
+        drawBoard();
+        updateSideBadgesAndScores();
+        if (STATE.turn === 2) triggerAiMove(360);
+        return true;
+      } else {
+        const sim = simulateWeiqiMove(STATE.board, r, c, side, STATE.koBoardKey);
+        if (!sim.valid) {
+          if (side === 1) {
+            setCommentary(sim.reason === 'ko'
+              ? '「此處乃『打劫』禁著點，須先在別處尋一枚劫材再來提子。」'
+              : '「此處無氣可喘，落子便是自尋死路——大小姐看清氣眼再落子。」');
+          }
+          return false;
+        }
+        saveSnapshot();
+        STATE.board = sim.newBoard;
+        STATE.lastMove = { r, c };
+        STATE.hoverPos = null;
+        STATE.moveCount++;
+        STATE.consecutivePasses = 0;
+
+        if (sim.capturedCount > 0) {
+          STATE.captures[side] += sim.capturedCount;
+          playTone('capture');
+          if (side === 1) setCommentary('「竟叫大小姐反手提走了先生幾子，好身手，看來先生得收起幾分輕敵之心了。」');
+        } else {
+          playTone('stone');
+        }
+
+        STATE.koBoardKey = sim.nextKoKey;
+        STATE.turn = side === 1 ? 2 : 1;
+        drawBoard();
+        updateSideBadgesAndScores();
+        if (STATE.turn === 2) triggerAiMove(400);
+        return true;
+      }
+    }
+
+    const DIRS_8 = [[0, 1], [1, 0], [1, 1], [1, -1]];
+    function checkGomokuWin(board, r, c, side) {
+      const N = board.length;
+      for (const [dr, dc] of DIRS_8) {
+        const cells = [{ r, c }];
+        let nr = r + dr, nc = c + dc;
+        while (nr >= 0 && nr < N && nc >= 0 && nc < N && board[nr][nc] === side) {
+          cells.push({ r: nr, c: nc }); nr += dr; nc += dc;
+        }
+        nr = r - dr; nc = c - dc;
+        while (nr >= 0 && nr < N && nc >= 0 && nc < N && board[nr][nc] === side) {
+          cells.unshift({ r: nr, c: nc }); nr -= dr; nc -= dc;
+        }
+        if (cells.length >= 5) return cells;
+      }
+      return null;
+    }
+
+    function evaluateGomokuPoint(board, r, c, side) {
+      const N = board.length;
+      let total = 0;
+      for (const [dr, dc] of DIRS_8) {
+        let count = 1, openEnds = 0;
+        let nr = r + dr, nc = c + dc;
+        while (nr >= 0 && nr < N && nc >= 0 && nc < N && board[nr][nc] === side) { count++; nr += dr; nc += dc; }
+        if (nr >= 0 && nr < N && nc >= 0 && nc < N && board[nr][nc] === 0) openEnds++;
+        nr = r - dr; nc = c - dc;
+        while (nr >= 0 && nr < N && nc >= 0 && nc < N && board[nr][nc] === side) { count++; nr -= dr; nc -= dc; }
+        if (nr >= 0 && nr < N && nc >= 0 && nc < N && board[nr][nc] === 0) openEnds++;
+
+        if (count >= 5) total += 1000000;
+        else if (count === 4 && openEnds === 2) total += 80000;
+        else if (count === 4 && openEnds === 1) total += 12000;
+        else if (count === 3 && openEnds === 2) total += 9500;
+        else if (count === 3 && openEnds === 1) total += 1200;
+        else if (count === 2 && openEnds === 2) total += 650;
+        else if (count === 2 && openEnds === 1) total += 120;
+        else total += 15;
+      }
+      const dist = Math.abs(r - 7) + Math.abs(c - 7);
+      total += Math.max(0, (14 - dist) * 4);
+      return total;
+    }
+
+    function chooseGomokuAiMove() {
+      if (STATE.moveCount === 0) return { r: 7, c: 7, tag: 'start' };
+      const candidates = [];
+      for (let r = 0; r < 15; r++) {
+        for (let c = 0; c < 15; c++) {
+          if (STATE.board[r][c] !== 0) continue;
+          let near = false;
+          for (let dr = -2; dr <= 2 && !near; dr++) {
+            for (let dc = -2; dc <= 2; dc++) {
+              const nr = r + dr, nc = c + dc;
+              if (nr >= 0 && nr < 15 && nc >= 0 && nc < 15 && STATE.board[nr][nc] !== 0) { near = true; break; }
+            }
+          }
+          if (!near) continue;
+
+          STATE.board[r][c] = 2;
+          const atk = evaluateGomokuPoint(STATE.board, r, c, 2);
+          STATE.board[r][c] = 1;
+          const def = evaluateGomokuPoint(STATE.board, r, c, 1);
+          STATE.board[r][c] = 0;
+
+          const defW = STATE.difficulty === 'easy' ? 0.72 : STATE.difficulty === 'normal' ? 1.05 : 1.18;
+          const noise = STATE.difficulty === 'easy' ? Math.random() * 2800 : STATE.difficulty === 'normal' ? Math.random() * 220 : Math.random() * 25;
+          let score = atk + def * defW + noise;
+          if (atk >= 1000000) score = 9999999;
+          else if (def >= 1000000 && STATE.difficulty !== 'easy') score = 8888888;
+          else if (def >= 80000 && STATE.difficulty !== 'easy') score = Math.max(score, 500000 + def);
+
+          candidates.push({ r, c, score, atk, def });
+        }
+      }
+      candidates.sort((a, b) => b.score - a.score);
+      const best = candidates[0] || { r: 7, c: 7, atk: 0, def: 0 };
+      const tag = best.def >= 9000 ? 'block' : best.atk >= 9000 ? 'attack' : 'normal';
+      return { r: best.r, c: best.c, tag };
+    }
+
+    // Weiqi helpers
+    function getGroupAndLiberties(board, startR, startC) {
+      const N = board.length;
+      const side = board[startR][startC];
+      const visited = new Set([`${startR},${startC}`]);
+      const libs = new Set();
+      const stones = [];
+      const stack = [[startR, startC]];
+      while (stack.length) {
+        const [r, c] = stack.pop();
+        stones.push([r, c]);
+        for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nr = r + dr, nc = c + dc;
+          if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
+          const key = `${nr},${nc}`;
+          if (board[nr][nc] === 0) libs.add(key);
+          else if (board[nr][nc] === side && !visited.has(key)) { visited.add(key); stack.push([nr, nc]); }
+        }
+      }
+      return { stones, liberties: libs.size };
+    }
+
+    function simulateWeiqiMove(board, r, c, side, koKey) {
+      const N = board.length;
+      if (board[r][c] !== 0) return { valid: false };
+      const next = board.map(row => [...row]);
+      next[r][c] = side;
+      const opp = side === 1 ? 2 : 1;
+      let capturedCount = 0;
+
+      for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < N && nc >= 0 && nc < N && next[nr][nc] === opp) {
+          const grp = getGroupAndLiberties(next, nr, nc);
+          if (grp.liberties === 0) {
+            for (const [sr, sc] of grp.stones) { next[sr][sc] = 0; capturedCount++; }
+          }
+        }
+      }
+      if (getGroupAndLiberties(next, r, c).liberties === 0) return { valid: false, reason: 'suicide' };
+      const nextKey = next.map(row => row.join('')).join('|');
+      if (koKey && nextKey === koKey) return { valid: false, reason: 'ko' };
+      return { valid: true, newBoard: next, capturedCount, nextKoKey: capturedCount === 1 ? board.map(row => row.join('')).join('|') : null };
+    }
+
+    function chooseWeiqiAiMove() {
+      const N = 9;
+      const moves = [];
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          if (STATE.board[r][c] !== 0) continue;
+          const sim = simulateWeiqiMove(STATE.board, r, c, 2, STATE.koBoardKey);
+          if (!sim.valid) continue;
+          // Avoid filling own true eye
+          const isEye = [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dr, dc]) => {
+            const nr = r + dr, nc = c + dc;
+            return nr < 0 || nr >= N || nc < 0 || nc >= N || STATE.board[nr][nc] === 2;
+          });
+          if (sim.capturedCount === 0 && isEye) continue;
+
+          let score = sim.capturedCount * 140;
+          for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < N && nc >= 0 && nc < N) {
+              if (STATE.board[nr][nc] === 2) {
+                const b = getGroupAndLiberties(STATE.board, nr, nc);
+                const a = getGroupAndLiberties(sim.newBoard, nr, nc);
+                if (b.liberties === 1 && a.liberties >= 2) score += b.stones.length * 95;
+              } else if (STATE.board[nr][nc] === 1) {
+                const a = getGroupAndLiberties(sim.newBoard, nr, nc);
+                if (a.liberties === 1) score += a.stones.length * 70;
+              }
+            }
+          }
+          const dist = Math.abs(r - 4) + Math.abs(c - 4);
+          score += Math.max(0, (8 - dist) * 7);
+          if ((r === 2 || r === 6) && (c === 2 || c === 6)) score += 25;
+          if (r === 4 && c === 4) score += 32;
+          if (r === 0 || r === 8 || c === 0 || c === 8) score -= 18;
+          const jitter = STATE.difficulty === 'easy' ? Math.random() * 60 : STATE.difficulty === 'normal' ? Math.random() * 18 : Math.random() * 5;
+          moves.push({ r, c, score: score + jitter, capturedCount: sim.capturedCount });
+        }
+      }
+      if (!moves.length) return null;
+      moves.sort((a, b) => b.score - a.score);
+      return moves[0];
+    }
+
+    function passWeiqiTurn() {
+      if (STATE.gameOver || STATE.aiThinking || STATE.turn !== 1) return;
+      STATE.consecutivePasses++;
+      if (STATE.consecutivePasses >= 2) { finishWeiqiGame(); return; }
+      setCommentary('「大小姐既選擇虛著停一手，那先生便再落一著——若先生也停手，咱們便點目清算。」');
+      STATE.turn = 2;
+      updateSideBadgesAndScores();
+      triggerAiMove(400);
+    }
+
+    function finishWeiqiGame() {
+      if (STATE.gameOver) return;
+      STATE.gameOver = true;
+      updateSideBadgesAndScores();
+      const N = 9;
+      const visited = Array.from({ length: N }, () => Array(N).fill(false));
+      let pScore = STATE.captures[1];
+      let aScore = STATE.captures[2] + 3.5;
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          if (STATE.board[r][c] === 1) pScore++;
+          else if (STATE.board[r][c] === 2) aScore++;
+          else if (!visited[r][c]) {
+            const reg = [], borders = new Set(), stack = [[r, c]];
+            visited[r][c] = true;
+            while (stack.length) {
+              const [cr, cc] = stack.pop();
+              reg.push([cr, cc]);
+              for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                const nr = cr + dr, nc = cc + dc;
+                if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
+                if (STATE.board[nr][nc] === 0 && !visited[nr][nc]) { visited[nr][nc] = true; stack.push([nr, nc]); }
+                else if (STATE.board[nr][nc] !== 0) borders.add(STATE.board[nr][nc]);
+              }
+            }
+            if (borders.size === 1) {
+              if (borders.has(1)) pScore += reg.length;
+              if (borders.has(2)) aScore += reg.length;
+            }
+          }
+        }
+      }
+      const won = pScore > aScore;
+      const msg = won
+        ? `「九路手談點目已畢：大小姐得 ${pScore.toFixed(1)} 目，先生得 ${aScore.toFixed(1)} 目。這局棋勢與官子皆被你算準了，先生認輸。」`
+        : `「九路手談點目已畢：先生得 ${aScore.toFixed(1)} 目，大小姐得 ${pScore.toFixed(1)} 目。邊角官子還差幾分火候，下回先生再細細拆給你聽。」`;
+      setCommentary(msg);
+      showModal(won ? '九路手談・大小姐勝' : '九路手談・先生勝', msg);
+    }
+
+    // =========================================================================
+    // MODE 3: ULTIMATE TIC-TAC-TOE (水墨九宮・井字變陣)
+    // =========================================================================
+    const TTT_LINES = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
+    ];
+
+    function checkTtt3x3(arr) {
+      for (const line of TTT_LINES) {
+        const [a, b, c] = line;
+        if (arr[a] && arr[a] !== 3 && arr[a] === arr[b] && arr[a] === arr[c]) {
+          return { winner: arr[a], line };
+        }
+      }
+      if (arr.every(v => v !== 0)) return { winner: 3, line: null };
+      return null;
+    }
+
+    function drawUttt(sizePx) {
+      drawWoodenBase(sizePx);
+      const pad = sizePx * 0.055;
+      const span = sizePx - pad * 2;
+      const macroSize = span / 3;
+      const microSize = macroSize / 3;
+
+      // Highlight valid target macro boards
+      if (!STATE.gameOver && STATE.turn === 1) {
+        for (let m = 0; m < 9; m++) {
+          if (STATE.uttt.macroWinners[m] !== 0) continue;
+          if (STATE.uttt.activeMacro === -1 || STATE.uttt.activeMacro === m) {
+            const mr = Math.floor(m / 3), mc = m % 3;
+            ctx.save();
+            ctx.fillStyle = STATE.uttt.activeMacro === m
+              ? 'rgba(158, 42, 43, 0.16)'
+              : 'rgba(201, 169, 110, 0.12)';
+            ctx.fillRect(pad + mc * macroSize + 3, pad + mr * macroSize + 3, macroSize - 6, macroSize - 6);
+            ctx.strokeStyle = STATE.uttt.activeMacro === m ? 'rgba(229, 198, 135, 0.85)' : 'rgba(201, 169, 110, 0.45)';
+            ctx.lineWidth = STATE.uttt.activeMacro === m ? 2.2 : 1.2;
+            ctx.strokeRect(pad + mc * macroSize + 3, pad + mr * macroSize + 3, macroSize - 6, macroSize - 6);
+            ctx.restore();
+          }
+        }
+      }
+
+      // Draw micro grids & symbols
+      for (let m = 0; m < 9; m++) {
+        const mr = Math.floor(m / 3), mc = m % 3;
+        const mx = pad + mc * macroSize;
+        const my = pad + mr * macroSize;
+        const innerPad = microSize * 0.14;
+
+        // Micro grid lines
+        ctx.strokeStyle = 'rgba(42, 24, 10, 0.36)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i <= 2; i++) {
+          ctx.beginPath();
+          ctx.moveTo(mx + i * microSize, my + innerPad);
+          ctx.lineTo(mx + i * microSize, my + macroSize - innerPad);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(mx + innerPad, my + i * microSize);
+          ctx.lineTo(mx + macroSize - innerPad, my + i * microSize);
+          ctx.stroke();
+        }
+
+        // Micro cells
+        for (let c = 0; c < 9; c++) {
+          const cr = Math.floor(c / 3), cc = c % 3;
+          const cx = mx + (cc + 0.5) * microSize;
+          const cy = my + (cr + 0.5) * microSize;
+          const val = STATE.uttt.cells[m][c];
+          const rad = microSize * 0.32;
+
+          // Last move subtle highlight
+          if (STATE.uttt.lastCell && STATE.uttt.lastCell.m === m && STATE.uttt.lastCell.c === c) {
+            ctx.fillStyle = 'rgba(255, 245, 210, 0.28)';
+            ctx.fillRect(mx + cc * microSize + 2, my + cr * microSize + 2, microSize - 4, microSize - 4);
+          }
+
+          // Hover preview
+          if (!STATE.gameOver && STATE.turn === 1 && val === 0 && STATE.hoverPos && STATE.hoverPos.m === m && STATE.hoverPos.c === c) {
+            ctx.save();
+            ctx.globalAlpha = 0.42;
+            drawInkCircle(cx, cy, rad, 2.4);
+            ctx.restore();
+          }
+
+          if (val === 1) drawInkCircle(cx, cy, rad, 2.8);
+          else if (val === 2) drawInkCross(cx, cy, rad, 2.8);
+        }
+
+        // Macro board captured seal overlay
+        const mw = STATE.uttt.macroWinners[m];
+        if (mw === 1 || mw === 2) {
+          ctx.save();
+          ctx.fillStyle = mw === 1 ? 'rgba(139, 92, 246, 0.16)' : 'rgba(20, 18, 28, 0.28)';
+          ctx.fillRect(mx + 4, my + 4, macroSize - 8, macroSize - 8);
+          const centerX = mx + macroSize / 2;
+          const centerY = my + macroSize / 2;
+          const bigRad = macroSize * 0.34;
+          if (mw === 1) drawInkCircle(centerX, centerY, bigRad, 5.5);
+          else drawInkCross(centerX, centerY, bigRad, 5.5);
+
+          // Classical square seal stamp in corner
+          const stampSize = macroSize * 0.22;
+          const sx = mx + macroSize - stampSize - 6;
+          const sy = my + 6;
+          ctx.fillStyle = mw === 1 ? '#6d28d9' : '#9e2a2b';
+          ctx.fillRect(sx, sy, stampSize, stampSize);
+          ctx.strokeStyle = '#f5e6c8';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(sx + 1.5, sy + 1.5, stampSize - 3, stampSize - 3);
+          ctx.fillStyle = '#fff8eb';
+          ctx.font = `bold ${Math.max(9, Math.floor(stampSize * 0.62))}px "Noto Serif TC", serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(mw === 1 ? '玉' : '墨', sx + stampSize / 2, sy + stampSize / 2 + 1);
+          ctx.restore();
+        }
+      }
+
+      // Macro 3x3 heavy ink lines
+      ctx.strokeStyle = '#241407';
+      ctx.lineWidth = 3.2;
+      ctx.strokeRect(pad, pad, span, span);
+      for (let i = 1; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.moveTo(pad + i * macroSize, pad);
+        ctx.lineTo(pad + i * macroSize, pad + span);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pad, pad + i * macroSize);
+        ctx.lineTo(pad + span, pad + i * macroSize);
+        ctx.stroke();
+      }
+
+      // Macro winning line
+      if (STATE.uttt.macroWinLine) {
+        const m1 = STATE.uttt.macroWinLine[0];
+        const m3 = STATE.uttt.macroWinLine[2];
+        const x1 = pad + ((m1 % 3) + 0.5) * macroSize;
+        const y1 = pad + (Math.floor(m1 / 3) + 0.5) * macroSize;
+        const x2 = pad + ((m3 % 3) + 0.5) * macroSize;
+        const y2 = pad + (Math.floor(m3 / 3) + 0.5) * macroSize;
+        ctx.save();
+        ctx.strokeStyle = '#9e2a2b';
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = 'rgba(255, 215, 130, 0.9)';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function drawInkCircle(cx, cy, r, lw) {
+      ctx.save();
+      ctx.strokeStyle = '#f8f0ff';
+      ctx.shadowColor = 'rgba(139, 92, 246, 0.85)';
+      ctx.shadowBlur = 7;
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawInkCross(cx, cy, r, lw) {
+      ctx.save();
+      ctx.strokeStyle = '#181520';
+      ctx.shadowColor = 'rgba(158, 42, 43, 0.55)';
+      ctx.shadowBlur = 4;
+      ctx.lineWidth = lw;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.85, cy - r * 0.85);
+      ctx.lineTo(cx + r * 0.85, cy + r * 0.85);
+      ctx.moveTo(cx + r * 0.85, cy - r * 0.85);
+      ctx.lineTo(cx - r * 0.85, cy + r * 0.85);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function hitTestUttt(x, y, sizePx) {
+      const pad = sizePx * 0.055;
+      const span = sizePx - pad * 2;
+      if (x < pad || x > pad + span || y < pad || y > pad + span) return null;
+      const macroSize = span / 3;
+      const microSize = macroSize / 3;
+      const mc = Math.floor((x - pad) / macroSize);
+      const mr = Math.floor((y - pad) / macroSize);
+      const m = mr * 3 + mc;
+      if (STATE.uttt.macroWinners[m] !== 0) return null;
+      if (STATE.uttt.activeMacro !== -1 && STATE.uttt.activeMacro !== m) return null;
+
+      const cc = Math.floor((x - (pad + mc * macroSize)) / microSize);
+      const cr = Math.floor((y - (pad + mr * macroSize)) / microSize);
+      const c = cr * 3 + cc;
+      if (c < 0 || c >= 9 || STATE.uttt.cells[m][c] !== 0) return null;
+      return { m, c };
+    }
+
+    function attemptUtttMove(m, c, side) {
+      if (STATE.uttt.macroWinners[m] !== 0) return false;
+      if (STATE.uttt.activeMacro !== -1 && STATE.uttt.activeMacro !== m) return false;
+      if (STATE.uttt.cells[m][c] !== 0) return false;
+
+      saveSnapshot();
+      STATE.uttt.cells[m][c] = side;
+      STATE.uttt.lastCell = { m, c };
+      STATE.hoverPos = null;
+      STATE.moveCount++;
+
+      const microRes = checkTtt3x3(STATE.uttt.cells[m]);
+      if (microRes) {
+        STATE.uttt.macroWinners[m] = microRes.winner;
+        playTone('seal');
+        if (side === 1 && microRes.winner === 1) setCommentary(pickLine('utttCapture'));
+      } else {
+        playTone('brush');
+      }
+
+      // Check global 3x3 macro win
+      const macroRes = checkTtt3x3(STATE.uttt.macroWinners);
+      if (macroRes) {
+        STATE.gameOver = true;
+        STATE.uttt.macroWinLine = macroRes.line;
+        drawBoard();
+        updateSideBadgesAndScores();
+        if (macroRes.winner === 3) {
+          const msg = '「九宮悉數封局而未分高下，這般旗鼓相當倒是難得。」';
+          setCommentary(msg);
+          setTimeout(() => showModal('九宮平局・旗鼓相當', msg), 420);
+        } else {
+          const line = macroRes.winner === 1 ? pickLine('playerWin') : pickLine('aiWin');
+          setCommentary(line);
+          setTimeout(() => showModal(macroRes.winner === 1 ? '大小姐勝出・連佔三宮' : '先生勝出・九宮歸墨', line), 420);
+        }
+        return true;
+      }
+
+      // Determine next active macro board
+      const nextMacro = STATE.uttt.macroWinners[c] === 0 ? c : -1;
+      STATE.uttt.activeMacro = nextMacro;
+      if (side === 1 && nextMacro === -1 && !microRes) {
+        setCommentary(pickLine('utttSendFree'));
+      }
+
+      STATE.turn = side === 1 ? 2 : 1;
+      drawBoard();
+      updateSideBadgesAndScores();
+      if (STATE.turn === 2) triggerAiMove(420);
+      return true;
+    }
+
+    function chooseUtttAiMove() {
+      const validMacros = [];
+      for (let m = 0; m < 9; m++) {
+        if (STATE.uttt.macroWinners[m] === 0 && (STATE.uttt.activeMacro === -1 || STATE.uttt.activeMacro === m)) {
+          validMacros.push(m);
+        }
+      }
+      const moves = [];
+      for (const m of validMacros) {
+        for (let c = 0; c < 9; c++) {
+          if (STATE.uttt.cells[m][c] !== 0) continue;
+          let score = 0;
+
+          // Simulate placing 2 in m, c
+          const tempMicro = [...STATE.uttt.cells[m]];
+          tempMicro[c] = 2;
+          const winMicro = checkTtt3x3(tempMicro);
+          if (winMicro && winMicro.winner === 2) {
+            score += 120;
+            const tempMacro = [...STATE.uttt.macroWinners];
+            tempMacro[m] = 2;
+            const winMacro = checkTtt3x3(tempMacro);
+            if (winMacro && winMacro.winner === 2) score += 10000;
+          }
+
+          // Check if blocking player from winning micro m
+          tempMicro[c] = 1;
+          const blockMicro = checkTtt3x3(tempMicro);
+          if (blockMicro && blockMicro.winner === 1) score += 85;
+
+          // Prefer center of micro or center macro
+          if (c === 4) score += 14;
+          if (m === 4) score += 12;
+
+          // Penalty for sending player to an already decided macro (free choice) or a macro player is 1 move from winning
+          const targetWon = (m === c && winMicro) || STATE.uttt.macroWinners[c] !== 0;
+          if (targetWon) {
+            score -= 55;
+          } else {
+            // Check if player can immediately win target macro c
+            for (let pc = 0; pc < 9; pc++) {
+              if (STATE.uttt.cells[c][pc] === 0) {
+                const t2 = [...STATE.uttt.cells[c]];
+                t2[pc] = 1;
+                if (checkTtt3x3(t2)?.winner === 1) { score -= 70; break; }
+              }
+            }
+          }
+
+          const jitter = STATE.difficulty === 'easy' ? Math.random() * 90 : STATE.difficulty === 'normal' ? Math.random() * 22 : Math.random() * 6;
+          moves.push({ m, c, score: score + jitter });
+        }
+      }
+      moves.sort((a, b) => b.score - a.score);
+      return moves[0];
+    }
+
+    // =========================================================================
+    // MODE 4: CHINESE DARK CHESS (楚河漢界・水墨暗棋 4x8)
+    // =========================================================================
+    const DC_PIECES_TEMPLATE = [
+      { rank: 7, red: '帥', black: '將', count: 1 },
+      { rank: 6, red: '仕', black: '士', count: 2 },
+      { rank: 5, red: '相', black: '象', count: 2 },
+      { rank: 4, red: '俥', black: '車', count: 2 },
+      { rank: 3, red: '傌', black: '馬', count: 2 },
+      { rank: 2, red: '炮', black: '包', count: 2 },
+      { rank: 1, red: '兵', black: '卒', count: 5 }
+    ];
+
+    function initDarkChess() {
+      const deck = [];
+      for (const item of DC_PIECES_TEMPLATE) {
+        for (let i = 0; i < item.count; i++) {
+          deck.push({ side: 'red', rank: item.rank, name: item.red, revealed: false });
+          deck.push({ side: 'black', rank: item.rank, name: item.black, revealed: false });
+        }
+      }
+      // Fisher-Yates shuffle
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+      const grid = [];
+      for (let r = 0; r < 4; r++) {
+        grid.push(deck.slice(r * 8, (r + 1) * 8));
+      }
+      STATE.dc = {
+        grid,
+        playerColor: null,
+        aiColor: null,
+        selected: null,
+        validTargets: [],
+        lastAction: null,
+        eatenByPlayer: [],
+        eatenByAi: []
+      };
+    }
+
+    function canDarkChessCapture(attacker, defender) {
+      if (!attacker || !defender || !attacker.revealed || !defender.revealed) return false;
+      if (attacker.side === defender.side) return false;
+      // Pawn (1) captures General (7), General (7) cannot capture Pawn (1)
+      if (attacker.rank === 1 && defender.rank === 7) return true;
+      if (attacker.rank === 7 && defender.rank === 1) return false;
+      return attacker.rank >= defender.rank;
+    }
+
+    function getDarkChessMovesForPiece(grid, r, c) {
+      const piece = grid[r][c];
+      if (!piece || !piece.revealed) return [];
+      const targets = [];
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+      if (piece.rank === 2) {
+        // Cannon: 1-step move to empty, or jump over exact 1 piece (revealed or face-down) to capture enemy revealed piece
+        for (const [dr, dc] of dirs) {
+          let nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < 4 && nc >= 0 && nc < 8 && grid[nr][nc] === null) {
+            targets.push({ r: nr, c: nc, type: 'move' });
+          }
+          let screenFound = false;
+          nr = r + dr; nc = c + dc;
+          while (nr >= 0 && nr < 4 && nc >= 0 && nc < 8) {
+            if (grid[nr][nc] !== null) {
+              if (!screenFound) {
+                screenFound = true;
+              } else {
+                const target = grid[nr][nc];
+                if (target.revealed && target.side !== piece.side) {
+                  targets.push({ r: nr, c: nc, type: 'capture' });
+                }
+                break;
+              }
+            }
+            nr += dr; nc += dc;
+          }
+        }
+      } else {
+        for (const [dr, dc] of dirs) {
+          const nr = r + dr, nc = c + dc;
+          if (nr < 0 || nr >= 4 || nc < 0 || nc >= 8) continue;
+          const target = grid[nr][nc];
+          if (target === null) {
+            targets.push({ r: nr, c: nc, type: 'move' });
+          } else if (target.revealed && canDarkChessCapture(piece, target)) {
+            targets.push({ r: nr, c: nc, type: 'capture' });
+          }
+        }
+      }
+      return targets;
+    }
+
+    function drawDarkChess(sizePx) {
+      drawWoodenBase(sizePx);
+      const padX = sizePx * 0.04;
+      const boardW = sizePx - padX * 2;
+      const cellSize = boardW / 8;
+      const boardH = cellSize * 4;
+      const padY = (sizePx - boardH) / 2;
+
+      // Top & Bottom Classical Calligraphic Banner inside Square Canvas
+      ctx.save();
+      ctx.fillStyle = 'rgba(34, 20, 8, 0.72)';
+      ctx.font = `bold ${Math.max(13, Math.floor(sizePx * 0.036))}px "Noto Serif TC", serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('楚 河  ·  暗 棋 演 武  ·  漢 界', sizePx / 2, padY * 0.5);
+
+      const eatenStr = STATE.dc.eatenByPlayer.length
+        ? `大小姐已擒：${STATE.dc.eatenByPlayer.join(' ')}`
+        : '點翻暗子定陣，炮須隔山打牛，兵卒可剋帥將';
+      ctx.font = `${Math.max(11, Math.floor(sizePx * 0.025))}px "Noto Serif TC", serif`;
+      ctx.fillStyle = 'rgba(42, 24, 10, 0.78)';
+      ctx.fillText(eatenStr, sizePx / 2, padY + boardH + padY * 0.48);
+      ctx.restore();
+
+      // Grid background & lines
+      ctx.fillStyle = 'rgba(46, 28, 12, 0.14)';
+      ctx.fillRect(padX, padY, boardW, boardH);
+      ctx.strokeStyle = '#2b180a';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(padX, padY, boardW, boardH);
+
+      for (let r = 0; r <= 4; r++) {
+        ctx.beginPath();
+        ctx.moveTo(padX, padY + r * cellSize);
+        ctx.lineTo(padX + boardW, padY + r * cellSize);
+        ctx.stroke();
+      }
+      for (let c = 0; c <= 8; c++) {
+        ctx.beginPath();
+        ctx.moveTo(padX + c * cellSize, padY);
+        ctx.lineTo(padX + c * cellSize, padY + boardH);
+        ctx.stroke();
+      }
+
+      // Highlight last action
+      if (STATE.dc.lastAction) {
+        const { fromR, fromC, toR, toC } = STATE.dc.lastAction;
+        ctx.fillStyle = 'rgba(229, 198, 135, 0.25)';
+        ctx.fillRect(padX + fromC * cellSize + 2, padY + fromR * cellSize + 2, cellSize - 4, cellSize - 4);
+        ctx.fillRect(padX + toC * cellSize + 2, padY + toR * cellSize + 2, cellSize - 4, cellSize - 4);
+      }
+
+      // Highlight valid targets for selected piece
+      for (const t of STATE.dc.validTargets) {
+        const tx = padX + t.c * cellSize;
+        const ty = padY + t.r * cellSize;
+        ctx.save();
+        ctx.fillStyle = t.type === 'capture' ? 'rgba(158, 42, 43, 0.35)' : 'rgba(139, 92, 246, 0.28)';
+        ctx.fillRect(tx + 2, ty + 2, cellSize - 4, cellSize - 4);
+        ctx.strokeStyle = t.type === 'capture' ? '#ef4444' : '#c084fc';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(tx + 3, ty + 3, cellSize - 6, cellSize - 6);
+        ctx.restore();
+      }
+
+      // Draw Pieces
+      const rad = cellSize * 0.41;
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 8; c++) {
+          const piece = STATE.dc.grid[r][c];
+          if (!piece) continue;
+          const cx = padX + (c + 0.5) * cellSize;
+          const cy = padY + (r + 0.5) * cellSize;
+          const isSelected = STATE.dc.selected && STATE.dc.selected.r === r && STATE.dc.selected.c === c;
+
+          ctx.save();
+          ctx.shadowColor = 'rgba(0,0,0,0.55)';
+          ctx.shadowBlur = 6;
+          ctx.shadowOffsetY = 3;
+
+          if (!piece.revealed) {
+            // Face-down carved wooden/ink tile
+            const grad = ctx.createRadialGradient(cx - rad * 0.25, cy - rad * 0.25, 2, cx, cy, rad);
+            grad.addColorStop(0, '#4a3525');
+            grad.addColorStop(0.7, '#291c13');
+            grad.addColorStop(1, '#170f0a');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowColor = 'transparent';
+            ctx.strokeStyle = 'rgba(201, 169, 110, 0.55)';
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.arc(cx, cy, rad * 0.78, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(201, 169, 110, 0.45)';
+            ctx.font = `bold ${Math.floor(rad * 0.75)}px "Noto Serif TC", serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('墨', cx, cy + 1);
+          } else {
+            // Revealed piece
+            const grad = ctx.createRadialGradient(cx - rad * 0.3, cy - rad * 0.3, 2, cx, cy, rad);
+            grad.addColorStop(0, '#fcf6e8');
+            grad.addColorStop(0.75, '#e8d5b5');
+            grad.addColorStop(1, '#bfa47a');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowColor = 'transparent';
+            ctx.strokeStyle = isSelected ? '#c084fc' : (piece.side === 'red' ? '#9e2a2b' : '#1f1d2b');
+            ctx.lineWidth = isSelected ? 3 : 1.8;
+            ctx.beginPath();
+            ctx.arc(cx, cy, rad * 0.84, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.fillStyle = piece.side === 'red' ? '#a61c1c' : '#14131c';
+            ctx.font = `900 ${Math.floor(rad * 1.05)}px "Noto Serif TC", serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(piece.name, cx, cy + 1.5);
+          }
+          ctx.restore();
+        }
+      }
+    }
+
+    function hitTestDarkChess(x, y, sizePx) {
+      const padX = sizePx * 0.04;
+      const boardW = sizePx - padX * 2;
+      const cellSize = boardW / 8;
+      const boardH = cellSize * 4;
+      const padY = (sizePx - boardH) / 2;
+      if (x < padX || x > padX + boardW || y < padY || y > padY + boardH) return null;
+      const c = Math.floor((x - padX) / cellSize);
+      const r = Math.floor((y - padY) / cellSize);
+      if (r < 0 || r >= 4 || c < 0 || c >= 8) return null;
+      return { r, c };
+    }
+
+    function handleDarkChessClick(r, c) {
+      const piece = STATE.dc.grid[r][c];
+
+      // 1. Check if clicking a valid move/capture target for currently selected piece
+      if (STATE.dc.selected) {
+        const target = STATE.dc.validTargets.find(t => t.r === r && t.c === c);
+        if (target) {
+          executeDarkChessAction({
+            kind: target.type,
+            fromR: STATE.dc.selected.r,
+            fromC: STATE.dc.selected.c,
+            toR: r,
+            toC: c
+          }, 1);
+          return;
+        }
+      }
+
+      // 2. Clicking a face-down tile flips it
+      if (piece && !piece.revealed) {
+        executeDarkChessAction({ kind: 'flip', r, c }, 1);
+        return;
+      }
+
+      // 3. Clicking own revealed piece selects it
+      if (piece && piece.revealed && piece.side === STATE.dc.playerColor) {
+        STATE.dc.selected = { r, c };
+        STATE.dc.validTargets = getDarkChessMovesForPiece(STATE.dc.grid, r, c);
+        drawBoard();
+        return;
+      }
+
+      // Deselect otherwise
+      STATE.dc.selected = null;
+      STATE.dc.validTargets = [];
+      drawBoard();
+    }
+
+    function executeDarkChessAction(action, turnSide) {
+      saveSnapshot();
+      STATE.dc.selected = null;
+      STATE.dc.validTargets = [];
+      STATE.moveCount++;
+
+      if (action.kind === 'flip') {
+        const p = STATE.dc.grid[action.r][action.c];
+        p.revealed = true;
+        STATE.dc.lastAction = { fromR: action.r, fromC: action.c, toR: action.r, toC: action.c };
+        playTone('stone');
+
+        // Assign colors on the very first flip of the game
+        if (!STATE.dc.playerColor) {
+          if (turnSide === 1) {
+            STATE.dc.playerColor = p.side;
+            STATE.dc.aiColor = p.side === 'red' ? 'black' : 'red';
+          } else {
+            STATE.dc.aiColor = p.side;
+            STATE.dc.playerColor = p.side === 'red' ? 'black' : 'red';
+          }
+          setCommentary(`「首翻見『${p.name}』！大小姐執${STATE.dc.playerColor === 'red' ? '朱紅' : '玄墨'}一軍，先生便領${STATE.dc.aiColor === 'red' ? '朱紅' : '玄墨'}大軍迎戰。」`);
+        } else if (turnSide === 1 && Math.random() < 0.45) {
+          setCommentary(pickLine('dcFlip'));
+        }
+      } else {
+        const mover = STATE.dc.grid[action.fromR][action.fromC];
+        const victim = STATE.dc.grid[action.toR][action.toC];
+        if (victim) {
+          if (turnSide === 1) STATE.dc.eatenByPlayer.push(victim.name);
+          else STATE.dc.eatenByAi.push(victim.name);
+          playTone('capture');
+          if (turnSide === 1) setCommentary(pickLine('dcCapture'));
+        } else {
+          playTone('stone');
+        }
+        STATE.dc.grid[action.toR][action.toC] = mover;
+        STATE.dc.grid[action.fromR][action.fromC] = null;
+        STATE.dc.lastAction = { fromR: action.fromR, fromC: action.fromC, toR: action.toR, toC: action.toC };
+      }
+
+      // Check win condition (all enemy pieces eliminated or no legal moves)
+      const nextTurn = turnSide === 1 ? 2 : 1;
+      const winCheck = checkDarkChessEnd(nextTurn);
+      if (winCheck) {
+        STATE.gameOver = true;
+        drawBoard();
+        updateSideBadgesAndScores();
+        const line = winCheck === 1 ? pickLine('playerWin') : pickLine('aiWin');
+        setCommentary(line);
+        setTimeout(() => showModal(winCheck === 1 ? '楚河凱旋・大小姐勝' : '漢界收兵・先生勝', line), 420);
+        return;
+      }
+
+      STATE.turn = nextTurn;
+      drawBoard();
+      updateSideBadgesAndScores();
+      if (STATE.turn === 2) triggerAiMove(460);
+    }
+
+    function checkDarkChessEnd(nextTurnSide) {
+      if (!STATE.dc.playerColor) return 0;
+      const playerPieces = [], aiPieces = [];
+      let hiddenCount = 0;
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = STATE.dc.grid[r][c];
+          if (!p) continue;
+          if (!p.revealed) hiddenCount++;
+          if (p.side === STATE.dc.playerColor) playerPieces.push({ r, c, p });
+          else aiPieces.push({ r, c, p });
+        }
+      }
+      if (aiPieces.length === 0) return 1;
+      if (playerPieces.length === 0) return 2;
+
+      // If no hidden pieces left, check if nextTurnSide has any legal moves
+      if (hiddenCount === 0) {
+        const list = nextTurnSide === 1 ? playerPieces : aiPieces;
+        const hasMove = list.some(item => getDarkChessMovesForPiece(STATE.dc.grid, item.r, item.c).length > 0);
+        if (!hasMove) return nextTurnSide === 1 ? 2 : 1;
+      }
+      return 0;
+    }
+
+    function chooseDarkChessAiMove() {
+      const actions = [];
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = STATE.dc.grid[r][c];
+          if (!p) continue;
+          if (!p.revealed) {
+            actions.push({ kind: 'flip', r, c, score: 25 + Math.random() * 14 });
+          } else if (p.side === STATE.dc.aiColor) {
+            const targets = getDarkChessMovesForPiece(STATE.dc.grid, r, c);
+            for (const t of targets) {
+              let score = 0;
+              if (t.type === 'capture') {
+                const victim = STATE.dc.grid[t.r][t.c];
+                score += 90 + victim.rank * 28;
+              } else {
+                score += 12;
+              }
+              // Check if currently threatened by adjacent enemy
+              for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                const nr = r + dr, nc = c + dc;
+                if (nr >= 0 && nr < 4 && nc >= 0 && nc < 8) {
+                  const adj = STATE.dc.grid[nr][nc];
+                  if (adj && adj.revealed && adj.side === STATE.dc.playerColor && canDarkChessCapture(adj, p)) {
+                    score += 45 + p.rank * 12; // Flee bonus
+                  }
+                }
+              }
+              const jitter = STATE.difficulty === 'easy' ? Math.random() * 95 : STATE.difficulty === 'normal' ? Math.random() * 20 : Math.random() * 5;
+              actions.push({ kind: t.type, fromR: r, fromC: c, toR: t.r, toC: t.c, score: score + jitter });
+            }
+          }
+        }
+      }
+      actions.sort((a, b) => b.score - a.score);
+      return actions[0];
+    }
+
+    // =========================================================================
+    // MODE 5: DOTS AND BOXES (星羅點線・圈地圍城 6x6 dots -> 5x5 boxes)
+    // =========================================================================
+    function drawDotsAndBoxes(sizePx) {
+      drawWoodenBase(sizePx);
+      const n = STATE.dots.n; // 6 dots => 5 boxes
+      const pad = sizePx * 0.11;
+      const span = sizePx - pad * 2;
+      const step = span / (n - 1);
+
+      // 1. Completed Boxes (Classical Seals)
+      for (let r = 0; r < n - 1; r++) {
+        for (let c = 0; c < n - 1; c++) {
+          const owner = STATE.dots.boxes[r][c];
+          if (!owner) continue;
+          const bx = pad + c * step + 5;
+          const by = pad + r * step + 5;
+          const bw = step - 10;
+
+          ctx.save();
+          ctx.fillStyle = owner === 1 ? 'rgba(139, 92, 246, 0.24)' : 'rgba(20, 18, 28, 0.34)';
+          ctx.fillRect(bx, by, bw, bw);
+          ctx.strokeStyle = owner === 1 ? '#c084fc' : '#9e2a2b';
+          ctx.lineWidth = 1.6;
+          ctx.strokeRect(bx, by, bw, bw);
+
+          ctx.fillStyle = owner === 1 ? '#f5ebff' : '#f3c6c7';
+          ctx.font = `bold ${Math.floor(bw * 0.42)}px "Noto Serif TC", serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(owner === 1 ? '紫印' : '墨城', bx + bw / 2, by + bw / 2 + 1);
+          ctx.restore();
+        }
+      }
+
+      // 2. Guide dashed grid
+      ctx.save();
+      ctx.strokeStyle = 'rgba(42, 24, 10, 0.16)';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1;
+      for (let i = 0; i < n; i++) {
+        ctx.beginPath();
+        ctx.moveTo(pad, pad + i * step);
+        ctx.lineTo(pad + span, pad + i * step);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pad + i * step, pad);
+        ctx.lineTo(pad + i * step, pad + span);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // 3. Hover preview line
+      if (!STATE.gameOver && STATE.turn === 1 && STATE.hoverPos) {
+        const { type, r, c } = STATE.hoverPos;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(192, 132, 252, 0.65)';
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        if (type === 'h') {
+          ctx.moveTo(pad + c * step, pad + r * step);
+          ctx.lineTo(pad + (c + 1) * step, pad + r * step);
+        } else {
+          ctx.moveTo(pad + c * step, pad + r * step);
+          ctx.lineTo(pad + c * step, pad + (r + 1) * step);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 4. Drawn Edges
+      const drawEdge = (type, r, c, owner) => {
+        const isLast = STATE.dots.lastEdge && STATE.dots.lastEdge.type === type && STATE.dots.lastEdge.r === r && STATE.dots.lastEdge.c === c;
+        ctx.save();
+        ctx.strokeStyle = owner === 1 ? '#f3e8ff' : '#14131c';
+        if (owner === 1) {
+          ctx.shadowColor = 'rgba(139, 92, 246, 0.85)';
+          ctx.shadowBlur = 7;
+        }
+        ctx.lineWidth = isLast ? 6.5 : 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        if (type === 'h') {
+          ctx.moveTo(pad + c * step, pad + r * step);
+          ctx.lineTo(pad + (c + 1) * step, pad + r * step);
+        } else {
+          ctx.moveTo(pad + c * step, pad + r * step);
+          ctx.lineTo(pad + c * step, pad + (r + 1) * step);
+        }
+        ctx.stroke();
+        ctx.restore();
+      };
+
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n - 1; c++) {
+          if (STATE.dots.hEdges[r][c]) drawEdge('h', r, c, STATE.dots.hEdges[r][c]);
+        }
+      }
+      for (let r = 0; r < n - 1; r++) {
+        for (let c = 0; c < n; c++) {
+          if (STATE.dots.vEdges[r][c]) drawEdge('v', r, c, STATE.dots.vEdges[r][c]);
+        }
+      }
+
+      // 5. Star-point Dots
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          const dx = pad + c * step;
+          const dy = pad + r * step;
+          ctx.beginPath();
+          ctx.arc(dx, dy, 5.2, 0, Math.PI * 2);
+          ctx.fillStyle = '#241407';
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(dx, dy, 2.2, 0, Math.PI * 2);
+          ctx.fillStyle = '#e5c687';
+          ctx.fill();
+        }
+      }
+    }
+
+    function hitTestDotsEdge(x, y, sizePx) {
+      const n = STATE.dots.n;
+      const pad = sizePx * 0.11;
+      const span = sizePx - pad * 2;
+      const step = span / (n - 1);
+      const tol = step * 0.28;
+
+      let best = null;
+      let minDist = tol;
+
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n - 1; c++) {
+          if (STATE.dots.hEdges[r][c] !== 0) continue;
+          const mx = pad + (c + 0.5) * step;
+          const my = pad + r * step;
+          const d = Math.hypot(x - mx, y - my);
+          if (d < minDist) { minDist = d; best = { type: 'h', r, c }; }
+        }
+      }
+      for (let r = 0; r < n - 1; r++) {
+        for (let c = 0; c < n; c++) {
+          if (STATE.dots.vEdges[r][c] !== 0) continue;
+          const mx = pad + c * step;
+          const my = pad + (r + 0.5) * step;
+          const d = Math.hypot(x - mx, y - my);
+          if (d < minDist) { minDist = d; best = { type: 'v', r, c }; }
+        }
+      }
+      return best;
+    }
+
+    function countBoxSides(hEdges, vEdges, br, bc) {
+      let s = 0;
+      if (hEdges[br][bc]) s++;
+      if (hEdges[br + 1][bc]) s++;
+      if (vEdges[br][bc]) s++;
+      if (vEdges[br][bc + 1]) s++;
+      return s;
+    }
+
+    function attemptDotsMove(type, r, c, side) {
+      if (type === 'h' && STATE.dots.hEdges[r][c] !== 0) return false;
+      if (type === 'v' && STATE.dots.vEdges[r][c] !== 0) return false;
+
+      saveSnapshot();
+      if (type === 'h') STATE.dots.hEdges[r][c] = side;
+      else STATE.dots.vEdges[r][c] = side;
+
+      STATE.dots.lastEdge = { type, r, c };
+      STATE.hoverPos = null;
+      STATE.moveCount++;
+
+      // Check newly completed boxes
+      let completedNow = 0;
+      const n = STATE.dots.n;
+      for (let br = 0; br < n - 1; br++) {
+        for (let bc = 0; bc < n - 1; bc++) {
+          if (STATE.dots.boxes[br][bc] === 0 && countBoxSides(STATE.dots.hEdges, STATE.dots.vEdges, br, bc) === 4) {
+            STATE.dots.boxes[br][bc] = side;
+            STATE.dots.scores[side]++;
+            completedNow++;
+          }
+        }
+      }
+
+      if (completedNow > 0) {
+        playTone('seal');
+        if (side === 1) setCommentary(pickLine('dotsChain'));
+      } else {
+        playTone('brush');
+        // Check if player just gave AI a 3-sided box
+        if (side === 1) {
+          let gaveThree = false;
+          for (let br = 0; br < n - 1; br++) {
+            for (let bc = 0; bc < n - 1; bc++) {
+              if (STATE.dots.boxes[br][bc] === 0 && countBoxSides(STATE.dots.hEdges, STATE.dots.vEdges, br, bc) === 3) {
+                gaveThree = true;
+              }
+            }
+          }
+          if (gaveThree) setCommentary(pickLine('dotsGift'));
+        }
+      }
+
+      // Check game end (all 25 boxes claimed)
+      const totalBoxes = (n - 1) * (n - 1);
+      if (STATE.dots.scores[1] + STATE.dots.scores[2] === totalBoxes) {
+        STATE.gameOver = true;
+        drawBoard();
+        updateSideBadgesAndScores();
+        const won = STATE.dots.scores[1] > STATE.dots.scores[2];
+        const msg = won
+          ? `「星羅封城已畢：大小姐蓋下 ${STATE.dots.scores[1]} 座紫印，先生得 ${STATE.dots.scores[2]} 城。算計精準，先生甘拜下風。」`
+          : `「星羅封城已畢：先生佔下 ${STATE.dots.scores[2]} 座墨城，大小姐得 ${STATE.dots.scores[1]} 城。收官連環局最見功力，下回再戰。」`;
+        setCommentary(msg);
+        setTimeout(() => showModal(won ? '星羅圍城・大小姐勝' : '星羅圍城・先生勝', msg), 420);
+        return true;
+      }
+
+      // Bonus turn if completed a box!
+      if (completedNow > 0) {
+        drawBoard();
+        updateSideBadgesAndScores();
+        if (side === 2) triggerAiMove(360);
+        return true;
+      }
+
+      STATE.turn = side === 1 ? 2 : 1;
+      drawBoard();
+      updateSideBadgesAndScores();
+      if (STATE.turn === 2) triggerAiMove(380);
+      return true;
+    }
+
+    function chooseDotsAiMove() {
+      const n = STATE.dots.n;
+      const allEdges = [];
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n - 1; c++) {
+          if (STATE.dots.hEdges[r][c] === 0) allEdges.push({ type: 'h', r, c });
+        }
+      }
+      for (let r = 0; r < n - 1; r++) {
+        for (let c = 0; c < n; c++) {
+          if (STATE.dots.vEdges[r][c] === 0) allEdges.push({ type: 'v', r, c });
+        }
+      }
+
+      for (const edge of allEdges) {
+        const hCopy = STATE.dots.hEdges.map(row => [...row]);
+        const vCopy = STATE.dots.vEdges.map(row => [...row]);
+        if (edge.type === 'h') hCopy[edge.r][edge.c] = 2;
+        else vCopy[edge.r][edge.c] = 2;
+
+        let completes = 0;
+        let createsThird = 0;
+        for (let br = 0; br < n - 1; br++) {
+          for (let bc = 0; bc < n - 1; bc++) {
+            if (STATE.dots.boxes[br][bc] !== 0) continue;
+            const before = countBoxSides(STATE.dots.hEdges, STATE.dots.vEdges, br, bc);
+            const after = countBoxSides(hCopy, vCopy, br, bc);
+            if (before < 4 && after === 4) completes++;
+            else if (before < 3 && after === 3) createsThird++;
+          }
+        }
+
+        let score = completes * 200 - createsThird * 95;
+        const jitter = STATE.difficulty === 'easy' ? Math.random() * 140 : STATE.difficulty === 'normal' ? Math.random() * 18 : Math.random() * 4;
+        edge.score = score + jitter;
+      }
+
+      allEdges.sort((a, b) => b.score - a.score);
+      return allEdges[0];
+    }
+
+    // =========================================================================
+    // MODE 6: REVERSI / OTHELLO (黑白翻天・水墨翻轉棋 8x8)
+    // =========================================================================
+    const REVERSI_WEIGHTS = [
+      [120, -25, 20,  5,  5, 20, -25, 120],
+      [-25, -45, -5, -5, -5, -5, -45, -25],
+      [ 20,  -5, 15,  3,  3, 15,  -5,  20],
+      [  5,  -5,  3,  3,  3,  3,  -5,   5],
+      [  5,  -5,  3,  3,  3,  3,  -5,   5],
+      [ 20,  -5, 15,  3,  3, 15,  -5,  20],
+      [-25, -45, -5, -5, -5, -5, -45, -25],
+      [120, -25, 20,  5,  5, 20, -25, 120]
+    ];
+
+    function initReversi() {
+      const b = Array.from({ length: 8 }, () => Array(8).fill(0));
+      b[3][3] = 2; b[3][4] = 1;
+      b[4][3] = 1; b[4][4] = 2;
+      STATE.reversi = {
+        board: b,
+        validMoves: getReversiValidMoves(b, 1),
+        lastMove: null,
+        flippedCells: []
+      };
+    }
+
+    function getReversiFlips(board, r, c, side) {
+      if (board[r][c] !== 0) return [];
+      const opp = side === 1 ? 2 : 1;
+      const allFlips = [];
+      const dirs = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+      for (const [dr, dc] of dirs) {
+        const line = [];
+        let nr = r + dr, nc = c + dc;
+        while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === opp) {
+          line.push({ r: nr, c: nc });
+          nr += dr; nc += dc;
+        }
+        if (line.length > 0 && nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === side) {
+          allFlips.push(...line);
+        }
+      }
+      return allFlips;
+    }
+
+    function getReversiValidMoves(board, side) {
+      const moves = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const flips = getReversiFlips(board, r, c, side);
+          if (flips.length > 0) moves.push({ r, c, flips });
+        }
+      }
+      return moves;
+    }
+
+    function countReversiStones() {
+      let p = 0, a = 0;
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (STATE.reversi.board[r][c] === 1) p++;
+          else if (STATE.reversi.board[r][c] === 2) a++;
+        }
+      }
+      return { p, a };
+    }
+
+    function drawReversi(sizePx) {
+      drawWoodenBase(sizePx);
+      const pad = sizePx * 0.06;
+      const span = sizePx - pad * 2;
+      const cell = span / 8;
+
+      ctx.strokeStyle = '#241407';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(pad, pad, span, span);
+
+      ctx.lineWidth = 1.2;
+      for (let i = 1; i < 8; i++) {
+        ctx.beginPath();
+        ctx.moveTo(pad + i * cell, pad);
+        ctx.lineTo(pad + i * cell, pad + span);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pad, pad + i * cell);
+        ctx.lineTo(pad + span, pad + i * cell);
+        ctx.stroke();
+      }
+
+      // Valid move indicators for player
+      if (!STATE.gameOver && STATE.turn === 1) {
+        for (const m of STATE.reversi.validMoves) {
+          const cx = pad + (m.c + 0.5) * cell;
+          const cy = pad + (m.r + 0.5) * cell;
+          const isHover = STATE.hoverPos && STATE.hoverPos.r === m.r && STATE.hoverPos.c === m.c;
+          ctx.save();
+          if (isHover) {
+            ctx.globalAlpha = 0.52;
+            drawStoneVisual(cx, cy, cell * 0.41, 1);
+          } else {
+            ctx.beginPath();
+            ctx.arc(cx, cy, cell * 0.13, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(139, 92, 246, 0.55)';
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      }
+
+      // Stones
+      const rad = cell * 0.41;
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const val = STATE.reversi.board[r][c];
+          if (!val) continue;
+          const cx = pad + (c + 0.5) * cell;
+          const cy = pad + (r + 0.5) * cell;
+          drawStoneVisual(cx, cy, rad, val);
+
+          const isFlipped = STATE.reversi.flippedCells.some(f => f.r === r && f.c === c);
+          if (isFlipped) {
+            ctx.save();
+            ctx.strokeStyle = '#e5c687';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.arc(cx, cy, rad * 0.56, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
+
+      if (STATE.reversi.lastMove) {
+        const { r, c } = STATE.reversi.lastMove;
+        const cx = pad + (c + 0.5) * cell;
+        const cy = pad + (r + 0.5) * cell;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = STATE.reversi.board[r][c] === 2 ? '#e5c687' : '#9e2a2b';
+        ctx.fill();
+      }
+    }
+
+    function hitTestReversi(x, y, sizePx) {
+      const pad = sizePx * 0.06;
+      const span = sizePx - pad * 2;
+      if (x < pad || x > pad + span || y < pad || y > pad + span) return null;
+      const cell = span / 8;
+      const c = Math.floor((x - pad) / cell);
+      const r = Math.floor((y - pad) / cell);
+      if (r < 0 || r >= 8 || c < 0 || c >= 8) return null;
+      return { r, c };
+    }
+
+    function attemptReversiMove(r, c, side) {
+      const flips = getReversiFlips(STATE.reversi.board, r, c, side);
+      if (flips.length === 0) return false;
+
+      saveSnapshot();
+      STATE.reversi.board[r][c] = side;
+      for (const f of flips) STATE.reversi.board[f.r][f.c] = side;
+      STATE.reversi.lastMove = { r, c };
+      STATE.reversi.flippedCells = flips;
+      STATE.hoverPos = null;
+      STATE.moveCount++;
+      playTone('stone');
+
+      if (side === 1 && ((r === 0 || r === 7) && (c === 0 || c === 7))) {
+        setCommentary(pickLine('reversiCorner'));
+      } else if (side === 1 && flips.length >= 4) {
+        setCommentary('「一口氣翻轉這許多棋子，聲勢驟變，大小姐這步夾擊極具魄力。」');
+      }
+
+      const nextSide = side === 1 ? 2 : 1;
+      const nextMoves = getReversiValidMoves(STATE.reversi.board, nextSide);
+      if (nextMoves.length > 0) {
+        STATE.turn = nextSide;
+        STATE.reversi.validMoves = nextSide === 1 ? nextMoves : [];
+        drawBoard();
+        updateSideBadgesAndScores();
+        if (STATE.turn === 2) triggerAiMove(420);
+        return true;
+      }
+
+      // Next side has no valid moves -> check if current side can still move
+      const sameMoves = getReversiValidMoves(STATE.reversi.board, side);
+      if (sameMoves.length > 0) {
+        STATE.turn = side;
+        STATE.reversi.validMoves = side === 1 ? sameMoves : [];
+        drawBoard();
+        updateSideBadgesAndScores();
+        setCommentary(nextSide === 1
+          ? '「大小姐眼下竟無合法落子之處，依規須由先生連走一手。」'
+          : '「先生此輪無處可夾，依規再由大小姐連落一子。」');
+        if (STATE.turn === 2) triggerAiMove(480);
+        return true;
+      }
+
+      // Neither side can move -> Game Over
+      STATE.gameOver = true;
+      drawBoard();
+      updateSideBadgesAndScores();
+      const { p, a } = countReversiStones();
+      const won = p > a;
+      const msg = p === a
+        ? `「六十四格翻轉已畢，你我各佔三十二子、平分秋色。」`
+        : won
+          ? `「黑白翻天點數已畢：大小姐佔 ${p} 子，先生佔 ${a} 子。邊角控制極佳，先生認輸。」`
+          : `「黑白翻天點數已畢：先生佔 ${a} 子，大小姐佔 ${p} 子。方才讓出了角位，下局定要守緊。」`;
+      setCommentary(msg);
+      setTimeout(() => showModal(p === a ? '黑白平局' : won ? '黑白翻天・大小姐勝' : '黑白翻天・先生勝', msg), 420);
+      return true;
+    }
+
+    function chooseReversiAiMove() {
+      const moves = getReversiValidMoves(STATE.reversi.board, 2);
+      if (!moves.length) return null;
+      for (const m of moves) {
+        let score = REVERSI_WEIGHTS[m.r][m.c] * 3 + m.flips.length * 4;
+        const jitter = STATE.difficulty === 'easy' ? Math.random() * 110 : STATE.difficulty === 'normal' ? Math.random() * 20 : Math.random() * 5;
+        m.score = score + jitter;
+      }
+      moves.sort((a, b) => b.score - a.score);
+      return moves[0];
+    }
+
+    // =========================================================================
+    // MASTER AI DISPATCHER
+    // =========================================================================
+    function triggerAiMove(delay = 380) {
+      STATE.aiThinking = true;
+      updateSideBadgesAndScores();
+
+      setTimeout(() => {
+        if (STATE.gameOver) {
+          STATE.aiThinking = false;
+          return;
+        }
+        STATE.aiThinking = false;
+
+        if (STATE.mode === 'gomoku') {
+          const mv = chooseGomokuAiMove();
+          attemptGomokuOrWeiqiMove(mv.r, mv.c, 2);
+          if (!STATE.gameOver) {
+            if (mv.tag === 'block') setCommentary(pickLine('aiBlock'));
+            else if (mv.tag === 'attack') setCommentary(pickLine('aiAttack'));
+          }
+        } else if (STATE.mode === 'weiqi') {
+          const mv = chooseWeiqiAiMove();
+          if (!mv) {
+            STATE.consecutivePasses++;
+            if (STATE.consecutivePasses >= 2) { finishWeiqiGame(); return; }
+            setCommentary('「棋局已無大場可爭，先生便先停一手——若大小姐也無處可落，咱們便點目清算。」');
+            STATE.turn = 1;
+            updateSideBadgesAndScores();
+            return;
+          }
+          attemptGomokuOrWeiqiMove(mv.r, mv.c, 2);
+          if (!STATE.gameOver && mv.capturedCount > 0) {
+            setCommentary('「氣盡子亡——這幾枚棋子先生便替你收進墨匣裡了，下回記得看清自己的氣眼。」');
+          }
+        } else if (STATE.mode === 'uttt') {
+          const mv = chooseUtttAiMove();
+          if (mv) attemptUtttMove(mv.m, mv.c, 2);
+        } else if (STATE.mode === 'darkchess') {
+          const act = chooseDarkChessAiMove();
+          if (act) executeDarkChessAction(act, 2);
+        } else if (STATE.mode === 'dots') {
+          const edge = chooseDotsAiMove();
+          if (edge) attemptDotsMove(edge.type, edge.r, edge.c, 2);
+        } else if (STATE.mode === 'reversi') {
+          const mv = chooseReversiAiMove();
+          if (mv) attemptReversiMove(mv.r, mv.c, 2);
+        }
+      }, delay);
+    }
+
+    // --- Modal Controls ---
+    function showModal(title, desc) {
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('modalDesc').textContent = desc;
+      const modal = document.getElementById('resultModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('resultModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // --- Lifecycle Boot ---
+    window.addEventListener('resize', resizeCanvas);
+    window.onload = function () {
+      resetGame();
+      resizeCanvas();
+    };
+  </script>
+</body>
+</html>
